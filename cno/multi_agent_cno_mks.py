@@ -12,16 +12,17 @@ import load_trace
 
 S_INFO = 3  # bit_rate, buffer_size, next_chunk_size, bandwidth_measurement(throughput and time), chunk_til_video_end
 S_LEN = 8  # take how many frames in the past
-A_DIM = 6
+A_DIM = 10
 ACTOR_LR_RATE =  0.0001
 CRITIC_LR_RATE = 0.001
 #NUM_AGENTS = 16
 NUM_AGENTS = 1
 TRAIN_SEQ_LEN = 100  # take as a train batch
 MODEL_SAVE_INTERVAL = 100
-#VIDEO_BIT_RATE = [300,750,1200,1850,2850,4300]  # Kbps
-#VIDEO_BIT_RATE = [3855, 7551, 11244, 18740, 37480, 56220]  # Kbps
-VIDEO_BIT_RATE  = [4000, 8000, 12000, 20000, 40000, 45000]  # Kbps
+
+#VIDEO_BIT_RATE  = [300,750,1200,1850,2850,4300]
+#VIDEO_BIT_RATE  = [4000, 8000, 12000, 20000, 40000, 45000]
+VIDEO_BIT_RATE   = [3000, 5000, 8000, 12000, 15000, 20000, 25000, 30000, 40000, 50000]
 
 HD_REWARD = [1, 2, 3, 12, 15, 20]
 BUFFER_NORM_FACTOR = 10.0
@@ -40,7 +41,7 @@ TRAIN_TRACES = './cooked_traces/'
 #NN_MODEL = './results/nn_model_ep_12700.ckpt'
 NN_MODEL = None
 
-CNO_PARA_LOSS_RATE = 225 # weight used in reward function
+CNO_PARA_LOSS_RATE = 150 # weight used in reward function
 #CNO_PARA_FREE_CA = 45
 
 def testing(epoch, nn_model, log_file):

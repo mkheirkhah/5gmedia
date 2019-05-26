@@ -11,11 +11,11 @@ from uc2_daemon import get_kafka_producer, write_kafka_uc2_exec
 
 S_INFO = 3  # bit_rate, bytes_sent, loss_rate
 S_LEN = 8  # take how many frames in the past
-A_DIM = 6
+A_DIM = 10
 ACTOR_LR_RATE = 0.0001
-CRITIC_LR_RATE = 0.001
-#VIDEO_BIT_RATE = [3855, 7551, 11244, 18740, 37480, 56220]  # Kbps
-VIDEO_BIT_RATE = [4000, 8000, 12000, 20000, 40000, 45000]  # Kbps
+#CRITIC_LR_RATE = 0.001
+#VIDEO_BIT_RATE = [4000, 8000, 12000, 20000, 40000, 45000]  # Kbps
+VIDEO_BIT_RATE  = [3000, 5000, 8000, 12000, 15000, 20000, 25000, 30000, 40000, 50000]
 M_IN_K = 1000.0
 DEFAULT_QUALITY = 1
 RANDOM_SEED = 42
@@ -36,12 +36,15 @@ RAND_RANGE = 1000
 #NN_MODEL = './trained_models/nn_model_ep_13000.ckpt'
 #NN_MODEL = './trained_models/nn_model_ep_l150_bg_in.ckpt'
 #NN_MODEL = './trained_models/nn_model_ep_652900.ckpt'
-#NN_MODEL = './trained_models/nn_model_ep_14900.ckpt' # Works
-#NN_MODEL = './trained_models/nn_model_ep_29200.ckpt' # Works
-NN_MODEL = './trained_models/nn_model_ep_99200.ckpt'
+#NN_MODEL = './trained_models/nn_model_ep_14900.ckpt'  # works
+#NN_MODEL = './trained_models/nn_model_ep_29200.ckpt'  # works
+#NN_MODEL = './trained_models/nn_model_ep_99200.ckpt'
+#NN_MODEL = './trained_models/nn_model_ep_9400.ckpt'
+#NN_MODEL = './trained_models/nn_model_ep_28100.ckpt' # works very well man!
+#NN_MODEL = './trained_models/nn_model_ep_22200.ckpt' # works well too
+NN_MODEL  = './trained_models/nn_model_ep_22000.ckpt'
 
-
-INTERVAL = 3.0
+INTERVAL = 1.0
 MBPS = 1000000.0
 CAPACITY = 50000000.0
 
@@ -112,18 +115,24 @@ def get_last_kafka_msg():
     ts = "T00:00:00.000000Z"
     br = 0.0
     lr = 0.0
-    with open("uc2_read_from_kafka.log", "r") as ff:
-        for line in ff:
-            col = line.split()
-            bs = col[0]
-            ts = col[1]
-            br = col[2]
-            lr = 0.0
-            print("get_last_kafka_msg() -> bs [{0}] br [{1}] ts [{2}] lr [{3}]"
-                  .format(bs,
-                          br,
-                          ts,
-                          lr))
+    try:
+        with open("uc2_read_from_kafka.log", "r") as ff:
+            for line in ff:
+                col = line.split()
+                bs = col[0]
+                ts = col[1]
+                br = col[2]
+                lr = 0.0
+                print("get_last_kafka_msg() -> bs [{0}] br [{1}] ts [{2}] lr [{3}]"
+                      .format(bs,
+                              br,
+                              ts,
+                              lr))
+    except Exception as ex:
+        print(ex)
+        print("The reader script that creates this file is not yet activated...!")
+        f = open('uc2_read_from_kafka.log', 'w')
+        f.close()
     return float(bs), ts, float(br), float(lr)
 
 
@@ -196,7 +205,7 @@ def main():
         nn_model = NN_MODEL
         if nn_model is not None:  # nn_model is the path to file
             saver.restore(sess, nn_model)
-            print("Model restored.", nn_model)
+            print("\nThe offline trained model [{0}] is restored...".format(nn_model))
 
         bit_rate = DEFAULT_QUALITY
         last_bit_rate = bit_rate
@@ -214,8 +223,6 @@ def main():
         ts = "T00:00:00.000000Z"
         ava_ca = 0.0
 
-        # f = open('uc2_read_from_kafka.log', 'r')
-        # f.close()
         bytes_sent, ts, bytes_rcvd, loss_rate,  = get_last_kafka_msg()
         
         counter = 0

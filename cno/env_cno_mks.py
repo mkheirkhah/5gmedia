@@ -3,24 +3,31 @@ import numpy as np
 MBPS = 1000000.0
 BITS_IN_BYTE = 8.0
 RANDOM_SEED = 42
-BITRATE_LEVELS = 6
+BITRATE_LEVELS = 10
 TOTAL_VIDEO_CHUNCK = 48
 FRAME_INTERVAL = 1 #50  # frame
 VIDEO_SIZE_FILE = './video_size_'
 
-#VIDEO_BIT_RATE_VCE = [4000, 8000, 12000, 20000, 40000, 45000]  # Kbps
-VIDEO_BIT_RATE_AVG  = [3855, 7551, 11244, 18740, 37480, 42000]
+#VIDEO_BIT_RATE     = [3000, 5000, 8000, 12000, 15000, 20000, 25000, 30000, 40000, 50000]
+VIDEO_BIT_RATE_AVG  = [3129, 5216, 8349, 12505, 15630, 20841, 26055, 31294, 41727, 52156]
 
-BACKGROUND_TRAFFIC_1 = [0,30]
-BACKGROUND_TRAFFIC_2 = [0,5,10,15,20,25,30,35,30,25,20,15,10,5,0]
-BACKGROUND_TRAFFIC_3 = [0,10,20,30,20,10,0]
+#VIDEO_BIT_RATE     = [4000, 8000, 12000, 20000, 40000, 45000]  #Kbps
+#VIDEO_BIT_RATE_AVG = [3855, 7551, 11244, 18740, 37480, 42000]  #Kbps
 
+BACKGROUND_TRAFFIC_0 = [0,0,0,0,0,0,0,0,30,30,30,30,30,30,30,30] #Mbps
+BACKGROUND_TRAFFIC_1 = [0, 30] #Mbps
+BACKGROUND_TRAFFIC_2 = [0, 5,  10, 15, 20, 25, 30, 35, 30, 25, 20, 15, 10, 5, 0]
+BACKGROUND_TRAFFIC_3 = [0, 10, 20, 30, 20, 10, 0]
+BACKGROUND_TRAFFIC_4 = [0,  2,  4,  6,  8,  10, 12, 14, 16, 18, 20, 22,
+                        24, 26, 28, 30, 32, 34, 36, 38, 40, 38, 36, 34,
+                        32, 28, 26, 24, 22, 20, 18, 16, 14, 12, 10, 8, 6,  4,  2]
+BACKGROUND_TRAFFIC_5 = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 40, 35, 30, 25, 20, 15, 10, 5, 0]
 
-CNO_RAND_MAX = 50000000 / 8.0  #Mbytes/s
-CNO_RAND_MIN = 1000000 / 8.0  #Mbytes/s
+# CNO_RAND_MAX = 50000000 / 8.0  #Mbytes/s
+# CNO_RAND_MIN = 1000000 / 8.0  #Mbytes/s
 
-ALGO = {0: "REAL", 1: "UNIFORM", 2: "NORMAL", 3: "SAWTHOOTH", 4: "NORM_BIT"}
-TRAFFIC_MODEL = ALGO[0]
+# ALGO = {0: "REAL", 1: "UNIFORM", 2: "NORMAL", 3: "SAWTHOOTH", 4: "NORM_BIT"}
+# TRAFFIC_MODEL = ALGO[0]
 
 class Environment:
     def __init__(self, all_cooked_time, all_cooked_bw,
@@ -45,12 +52,12 @@ class Environment:
 
     def get_video(self, quality):
         video = VIDEO_BIT_RATE_AVG[quality] * 1000  #bps
-        video = np.random.normal(video, video / 30.0)
+        video = np.random.normal(video, video / 20.0)
         return video
     
     def get_background(self, rand1, rand2):
-        index = self.video_chunk_counter % len(BACKGROUND_TRAFFIC_2)
-        background =  BACKGROUND_TRAFFIC_2[index] * MBPS #bps
+        index = self.video_chunk_counter % len(BACKGROUND_TRAFFIC_5)
+        background = BACKGROUND_TRAFFIC_5[index] * MBPS #bps
         background = np.random.normal(background, background / 10.0)
         return background
 
