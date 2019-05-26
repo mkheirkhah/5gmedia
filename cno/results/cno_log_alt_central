@@ -1,0 +1,28 @@
+WARNING:tensorflow:From /Users/mk382/virtualenvs/test3.6/lib/python3.6/site-packages/tflearn/initializations.py:119: UniformUnitScaling.__init__ (from tensorflow.python.ops.init_ops) is deprecated and will be removed in a future version.
+Instructions for updating:
+Use tf.initializers.variance_scaling instead with distribution=uniform to get equivalent behavior.
+WARNING:tensorflow:From /Users/mk382/sim/a3c_cno_mks.py:50: calling reduce_sum (from tensorflow.python.ops.math_ops) with keep_dims is deprecated and will be removed in a future version.
+Instructions for updating:
+keep_dims is deprecated, use keepdims instead
+WARNING:tensorflow:Issue encountered when serializing data_preprocessing.
+Type is unsupported, or the types of the items don't match field type in CollectionDef. Note this is a warning and probably safe to ignore.
+'NoneType' object has no attribute 'name'
+WARNING:tensorflow:Issue encountered when serializing data_augmentation.
+Type is unsupported, or the types of the items don't match field type in CollectionDef. Note this is a warning and probably safe to ignore.
+'NoneType' object has no attribute 'name'
+INFO:root:Epoch: 1 TD_loss: 222.8810656493728 Avg_reward: 486.78778211388277 Avg_entropy: 1.8298775166907209
+INFO:root:Epoch: 2 TD_loss: 303.76719006623955 Avg_reward: 647.1664273490842 Avg_entropy: 1.829878145075859
+INFO:root:Epoch: 3 TD_loss: 296.60903242006725 Avg_reward: 735.1416310063483 Avg_entropy: 1.8298791475752567
+INFO:root:Epoch: 4 TD_loss: 286.4361738695715 Avg_reward: 592.1757373691262 Avg_entropy: 1.8298789414953678
+INFO:root:Epoch: 5 TD_loss: 286.3111348538471 Avg_reward: 709.3100400064475 Avg_entropy: 1.829879083531968
+INFO:root:Epoch: 6 TD_loss: 153.74415409351136 Avg_reward: 439.1709650951867 Avg_entropy: 1.8298773131472
+INFO:root:Epoch: 7 TD_loss: 226.01971231780186 Avg_reward: 526.6153723469097 Avg_entropy: 1.8298789288135284
+INFO:root:Epoch: 8 TD_loss: 346.2544006632853 Avg_reward: 679.8936974066032 Avg_entropy: 1.8298782642851485
+INFO:root:Epoch: 9 TD_loss: 296.27229998852135 Avg_reward: 625.3853367297236 Avg_entropy: 1.8298780956166856
+INFO:root:Epoch: 10 TD_loss: 223.84580107424335 Avg_reward: 451.2658555119656 Avg_entropy: 1.829876404493413
+INFO:root:Epoch: 11 TD_loss: 233.85370163844527 Avg_reward: 529.4324067554087 Avg_entropy: 1.8298766035982903
+INFO:root:Epoch: 12 TD_loss: 284.6104236246472 Avg_reward: 583.6919701913645 Avg_entropy: 1.8298760614496596
+INFO:root:Epoch: 13 TD_loss: 238.0081146269051 Avg_reward: 626.4388709633546 Avg_entropy: 1.8298769916625732
+INFO:root:Epoch: 14 TD_loss: 194.99590076415635 Avg_reward: 497.7779292052128 Avg_entropy: 1.8298760677905792
+INFO:root:Epoch: 15 TD_loss: 255.82788744952256 Avg_reward: 569.4421350795374 Avg_entropy: 1.8298747406360951
+INFO:root:Epoch: 16 TD_loss: 205.1264626076354 Avg_reward: 475.66146830266365 Avg_entropy: 1.8298736271706033

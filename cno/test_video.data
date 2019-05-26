@@ -1,0 +1,23 @@
+Reading from kafka topic trafficmanager.uc2.metrics
+{'vdu_uuid': '1203', 'unit': 'bytes', 'type': 'netrx', 'value': '351901053600', 'timestamp': '2019-05-22T12:50:37.000000Z'}
+{'vdu_uuid': '1203', 'unit': 'bytes', 'type': 'netrx', 'value': '351904238954', 'timestamp': '2019-05-22T12:50:57.000000Z'}
+{'vdu_uuid': '1203', 'unit': 'bytes', 'type': 'netrx', 'value': '351907420341', 'timestamp': '2019-05-22T12:51:17.000000Z'}
+{'vdu_uuid': '1203', 'unit': 'bytes', 'type': 'netrx', 'value': '351910610104', 'timestamp': '2019-05-22T12:51:38.000000Z'}
+{'vdu_uuid': '1203', 'unit': 'bytes', 'type': 'netrx', 'value': '351913813407', 'timestamp': '2019-05-22T12:51:58.000000Z'}
+{'vdu_uuid': '1203', 'unit': 'bytes', 'type': 'netrx', 'value': '351917001117', 'timestamp': '2019-05-22T12:52:18.000000Z'}
+
+
+
+{'vdu_uuid': '1203', 'unit': 'bytes', 'type': 'nettx', 'value': '115119634386', 'timestamp': '2019-05-22T13:51:46.000000Z'}
+{'vdu_uuid': '1203', 'unit': 'bytes', 'type': 'nettx', 'value': '115120677774', 'timestamp': '2019-05-22T13:52:05.000000Z'}
+{'vdu_uuid': '1203', 'unit': 'bytes', 'type': 'nettx', 'value': '115121734950', 'timestamp': '2019-05-22T13:52:25.000000Z'}
+{'vdu_uuid': '1203', 'unit': 'bytes', 'type': 'nettx', 'value': '115122782558', 'timestamp': '2019-05-22T13:52:47.000000Z'}
+
+
+{'vdu_uuid': '1203', 'unit': 'bytes', 'type': 'netrx', 'value': '352296522380', 'timestamp': '2019-05-22T13:55:50.000000Z'}
+{'vdu_uuid': '1203', 'unit': 'bytes', 'type': 'netrx', 'value': '352297568915', 'timestamp': '2019-05-22T13:56:09.000000Z'}
+{'vdu_uuid': '1203', 'unit': 'bytes', 'type': 'netrx', 'value': '352298633407', 'timestamp': '2019-05-22T13:56:29.000000Z'}
+{'vdu_uuid': '1203', 'unit': 'bytes', 'type': 'netrx', 'value': '352299680010', 'timestamp': '2019-05-22T13:56:51.000000Z'}
+{'vdu_uuid': '1203', 'unit': 'bytes', 'type': 'netrx', 'value': '352300780721', 'timestamp': '2019-05-22T13:57:10.000000Z'}
+{'vdu_uuid': '1203', 'unit': 'bytes', 'type': 'netrx', 'value': '352301835830', 'timestamp': '2019-05-22T13:57:30.000000Z'}
+{'vdu_uuid': '1203', 'unit': 'bytes', 'type': 'netrx', 'value': '352302886592', 'timestamp': '2019-05-22T13:57:50.000000Z'}

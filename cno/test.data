@@ -1,0 +1,6 @@
+Reading from kafka topic trafficmanager.uc2.metrics
+{'vdu_uuid': '1203', 'unit': 'bytes', 'type': 'netrx', 'value': '351787549409', 'timestamp': '2019-05-22T12:43:52.000000Z'}
+{'vdu_uuid': '1203', 'unit': 'bytes', 'type': 'netrx', 'value': '351792811081', 'timestamp': '2019-05-22T12:44:12.000000Z'}
+{'vdu_uuid': '1203', 'unit': 'bytes', 'type': 'netrx', 'value': '351798519804', 'timestamp': '2019-05-22T12:44:32.000000Z'}
+{'vdu_uuid': '1203', 'unit': 'bytes', 'type': 'netrx', 'value': '351804220682', 'timestamp': '2019-05-22T12:44:52.000000Z'}
+{'vdu_uuid': '1203', 'unit': 'bytes', 'type': 'netrx', 'value': '351809946283', 'timestamp': '2019-05-22T12:45:13.000000Z'}
