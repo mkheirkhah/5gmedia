@@ -38,10 +38,10 @@ LOG_FILE = './results/cno_log_alt'
 TEST_LOG_FOLDER = './test_results/'
 TRAIN_TRACES = './cooked_traces/'
 #NN_MODEL = './results/pretrain_linear_reward.ckpt'
-#NN_MODEL = './results/nn_model_ep_12700.ckpt'
-NN_MODEL = None
+NN_MODEL = './results/nn_model_ep_130900_m4_bg5_v20_bg10_l500_ch20.ckpt'
+#NN_MODEL = None
 
-CNO_PARA_LOSS_RATE = 150 # weight used in reward function
+CNO_PARA_LOSS_RATE = 500 # weight used in reward function
 #CNO_PARA_FREE_CA = 45
 
 def testing(epoch, nn_model, log_file):

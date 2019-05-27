@@ -4,9 +4,10 @@ MBPS = 1000000.0
 BITS_IN_BYTE = 8.0
 RANDOM_SEED = 42
 BITRATE_LEVELS = 10
-TOTAL_VIDEO_CHUNCK = 48
+
+TOTAL_VIDEO_CHUNCK = 48 # 48 #100 #20
 FRAME_INTERVAL = 1 #50  # frame
-VIDEO_SIZE_FILE = './video_size_'
+#VIDEO_SIZE_FILE = './video_size_'
 
 #VIDEO_BIT_RATE     = [3000, 5000, 8000, 12000, 15000, 20000, 25000, 30000, 40000, 50000]
 VIDEO_BIT_RATE_AVG  = [3129, 5216, 8349, 12505, 15630, 20841, 26055, 31294, 41727, 52156]
@@ -14,14 +15,29 @@ VIDEO_BIT_RATE_AVG  = [3129, 5216, 8349, 12505, 15630, 20841, 26055, 31294, 4172
 #VIDEO_BIT_RATE     = [4000, 8000, 12000, 20000, 40000, 45000]  #Kbps
 #VIDEO_BIT_RATE_AVG = [3855, 7551, 11244, 18740, 37480, 42000]  #Kbps
 
-BACKGROUND_TRAFFIC_0 = [0,0,0,0,0,0,0,0,30,30,30,30,30,30,30,30] #Mbps
-BACKGROUND_TRAFFIC_1 = [0, 30] #Mbps
-BACKGROUND_TRAFFIC_2 = [0, 5,  10, 15, 20, 25, 30, 35, 30, 25, 20, 15, 10, 5, 0]
-BACKGROUND_TRAFFIC_3 = [0, 10, 20, 30, 20, 10, 0]
-BACKGROUND_TRAFFIC_4 = [0,  2,  4,  6,  8,  10, 12, 14, 16, 18, 20, 22,
-                        24, 26, 28, 30, 32, 34, 36, 38, 40, 38, 36, 34,
-                        32, 28, 26, 24, 22, 20, 18, 16, 14, 12, 10, 8, 6,  4,  2]
-BACKGROUND_TRAFFIC_5 = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 40, 35, 30, 25, 20, 15, 10, 5, 0]
+
+BACKGROUND_TRAFFIC_1  = [0, 30] #Mbps
+BACKGROUND_TRAFFIC_2  = [0, 5,  10, 15, 20, 25, 30, 35, 30, 25, 20, 15, 10, 5, 0]
+BACKGROUND_TRAFFIC_3  = [0, 10, 20, 30, 20, 10, 0]
+
+BACKGROUND_TRAFFIC_4  = [0,  2,  4,  6,  8,  10, 12, 14, 16, 18, 20, 22,
+                         24, 26, 28, 30, 32, 34, 36, 38, 40, 38, 36, 34,
+                         32, 28, 26, 24, 22, 20, 18, 16, 14, 12, 10, 8, 6, 4, 2]
+
+BACKGROUND_TRAFFIC_5  = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 40, 35, 30, 25, 20, 15, 10, 5, 0]
+
+BACKGROUND_TRAFFIC_6  = [0, 0, 0, 0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10, 10, 10]
+BACKGROUND_TRAFFIC_7  = [0, 0, 0, 0, 0, 0, 0, 0, 20, 20, 20, 20, 20, 20, 20, 20] 
+BACKGROUND_TRAFFIC_8  = [0, 0, 0, 0, 0, 0, 0, 0, 30, 30, 30, 30, 30, 30, 30, 30]
+BACKGROUND_TRAFFIC_9  = [0, 0, 0, 0, 0, 0, 0, 0, 35, 35, 35, 35, 35, 35, 35, 35]
+BACKGROUND_TRAFFIC_10 = [0, 0, 0, 0, 0, 0, 0, 0, 40, 40, 40, 40, 40, 40, 40, 40]
+
+
+BACKGROUND_TRAFFIC_0  = [BACKGROUND_TRAFFIC_1, BACKGROUND_TRAFFIC_2,
+                         BACKGROUND_TRAFFIC_3, BACKGROUND_TRAFFIC_4,
+                         BACKGROUND_TRAFFIC_5, BACKGROUND_TRAFFIC_6,
+                         BACKGROUND_TRAFFIC_7, BACKGROUND_TRAFFIC_8,
+                         BACKGROUND_TRAFFIC_9, BACKGROUND_TRAFFIC_10]
 
 # CNO_RAND_MAX = 50000000 / 8.0  #Mbytes/s
 # CNO_RAND_MIN = 1000000 / 8.0  #Mbytes/s
@@ -54,6 +70,14 @@ class Environment:
         video = VIDEO_BIT_RATE_AVG[quality] * 1000  #bps
         video = np.random.normal(video, video / 20.0)
         return video
+
+    def get_background_0(self, video_count):
+        outer_index = video_count % len(BACKGROUND_TRAFFIC_0)
+        inner_index = self.video_chunk_counter % len(BACKGROUND_TRAFFIC_0[outer_index])
+        
+        background = BACKGROUND_TRAFFIC_0[outer_index][inner_index] * MBPS #bps
+        background = np.random.normal(background, background / 10.0)
+        return background
     
     def get_background(self, rand1, rand2):
         index = self.video_chunk_counter % len(BACKGROUND_TRAFFIC_5)
@@ -94,6 +118,7 @@ class Environment:
 
         while True:  # download video frames            
             background = self.get_background(rand1, rand2)  #bps
+            #background = self.get_background_0(video_count)  #bps
             
             # if (video_count < 5000):
             #     background = 0.0

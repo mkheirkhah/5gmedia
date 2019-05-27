@@ -79,7 +79,7 @@ def write_kafka_uc2_exec(producer, value):
         now = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f")
         tmp_metric = METRIC_TEMPLATE_UC2_EXEC
         metric = generate_metric_uc2_exec(value, now, tmp_metric)
-        print("write_kafka_uc2_exec() ->", metric)
+        print("->", metric) #"write_kafka_uc2_exec() ->"
         t = producer.send(KAFKA_EXECUTION_TOPIC["uc2_exec"], metric)
         #print(KAFKA_EXECUTION_TOPIC["uc2_exec"])
         result = t.get(timeout=60)

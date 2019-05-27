@@ -1,4 +1,5 @@
 # Written by Morteza Kheirkhah [m.kheirkhah@ucl.ac.uk]
+# Model-4 (lr-ca)(bg5)(sm0)(v+20)(bg+10)(bt10)(l450)
 
 import os
 os.environ['CUDA_VISIBLE_DEVICES'] = ''
@@ -40,9 +41,28 @@ RAND_RANGE = 1000
 #NN_MODEL = './trained_models/nn_model_ep_29200.ckpt'  # works
 #NN_MODEL = './trained_models/nn_model_ep_99200.ckpt'
 #NN_MODEL = './trained_models/nn_model_ep_9400.ckpt'
-#NN_MODEL = './trained_models/nn_model_ep_28100.ckpt' # works very well man!
-#NN_MODEL = './trained_models/nn_model_ep_22200.ckpt' # works well too
-NN_MODEL  = './trained_models/nn_model_ep_22000.ckpt'
+#NN_MODEL = './trained_models/nn_model_ep_28000.ckpt' #model-4 (lr-ca)(bg4)(sm0)(v+20)(bg+10)(at10)/l225 [20-30]{laggy}
+#NN_MODEL = './trained_models/nn_model_ep_27900.ckpt' #model-4 (lr-ca)(bg5)(sm0)(v+20)(bg+10)(bt10)/l225 [20-30]
+#NN_MODEL = './trained_models/nn_model_ep_28100.ckpt' #works very well man! 20 < br < 30  
+#NN_MODEL = './trained_models/nn_model_ep_22200.ckpt' #model-4 (lr-ca)(bg5)(sm0)(v+20)(bg+10)(bt10)/l350 [works!][20-30]
+#NN_MODEL = './trained_models/nn_model_ep_22000.ckpt'
+#NN_MODEL = './trained_models/nn_model_ep_20400.ckpt'  # [l250] 
+#NN_MODEL = './trained_models/nn_model_ep_406500.ckpt' # [l450] 12<br<30 GOOD!
+
+#NN_MODEL = './trained_models/nn_model_ep_48900_m4_bg5_v20_bg10_l150.ckpt' #[08<30][r3]
+#NN_MODEL = './trained_models/nn_model_ep_28100_m4_bg5_v20_bg10_l225.ckpt' #[20<30][r4]
+#NN_MODEL = './trained_models/nn_model_ep_22200_m4_bg5_v20_bg10_l350.ckpt' #[08<25][r5]
+#NN_MODEL = './trained_models/nn_model_ep_24300_m4_bg5_v20_bg10_l450.ckpt' #[05<25][r5][some small loss]
+NN_MODEL = './trained_models/nn_model_ep_32500_m4_bg5_v20_bg10_l500.ckpt' #[05<25][r6][Very good! READY!]
+#NN_MODEL = './trained_models/nn_model_ep_22600_m4_bg5_v20_bg10_l500_ch100.ckpt' #[8<25][r4]
+#NN_MODEL = './trained_models/nn_model_ep_130900_m4_bg5_v20_bg10_l500_ch20.ckpt' #[3<25][r5][very little varying]
+##NN_MODEL = './trained_models/nn_model_ep_72500_m4_bg5_v20_bg10_l500_ch20.ckpt' #[3<25][r5][very little varying]
+#NN_MODEL = './trained_models/nn_model_ep_39600_m4_bg5_v20_bg10_l500_ch35.ckpt'  #[8<25][r4][]
+
+#NN_MODEL = './trained_models/nn_model_ep_17700_m4_bg5_v10_bg00_l450.ckpt' #[5<20][r5][some small loss] Almost Perfect!
+#NN_MODEL = './trained_models/nn_model_ep_22200_m4_bg5_v10_bg10_l450.ckpt' #[5<25][r6] Almost Perfect!
+#NN_MODEL = './trained_models/nn_model_ep_22800_m4_bg5_v10_bg20_l450.ckpt' #[8<25][r4]
+
 
 INTERVAL = 1.0
 MBPS = 1000000.0
@@ -92,8 +112,8 @@ def cal_lr(ca_tx, ca_rx, ca_free):
     #     print("OK, lr_frac < 0: let's set it to lr_frac = 0.0")
     #     lr_frac = 0.0
 
-    print("cal_lr() -> ca_tx[{0}]Mbps  ca_rx[{1}]Mbps  (rx > tx)[{2}] lr_frac[{3}]"
-          .format(ca_tx/MBPS, ca_rx/MBPS, (ca_rx > ca_tx), lr_frac))
+    # print("cal_lr() -> ca_tx[{0}]Mbps  ca_rx[{1}]Mbps  (rx > tx)[{2}] lr_frac[{3}]"
+    #       .format(ca_tx/MBPS, ca_rx/MBPS, (ca_rx > ca_tx), lr_frac))
 
     return lr_frac
 
@@ -161,7 +181,7 @@ def read_kafka(last_bytes_sent, last_bytes_rcvd, last_lr, last_ts, last_ca):
             
             if (result):
                 ts_dur = get_ts_dur(ext_new_ts, ext_last_ts)
-                print("read_kafka() -> ts_dur [{0}]".format(ts_dur))
+                #print("read_kafka() -> ts_dur [{0}]".format(ts_dur))
                 
                 ca_tx = cal_ca(bs, last_bytes_sent, ts_dur) #bps
                 ca_rx = cal_ca(br, last_bytes_rcvd, ts_dur) #bps
@@ -171,16 +191,16 @@ def read_kafka(last_bytes_sent, last_bytes_rcvd, last_lr, last_ts, last_ca):
 
                 lr = cal_lr(ca_tx, ca_rx, ca_free) # 0 < lr < 1
 
-                print("read_kafka() -> ca_free[{0}]Mbps  ca_rx[{1}]Mbps ca_tx[{2}]Mbps (rx > tx)[{3}] lr_frac[{4}]"
-                      .format(ca_free/MBPS,
-                              ca_rx/MBPS,
-                              ca_tx/MBPS,
-                              (ca_rx>ca_tx),
-                              lr))
+                print("-> ca_free[{0}]Mbps | loss_rate[{1}]% | rx[{2}]Mbps | tx[{3}]Mbps | dur[{4}]s"
+                      .format(round(ca_free/MBPS,3),
+                              round(lr,6),
+                              round(ca_rx/MBPS, 3),
+                              round(ca_tx/MBPS, 3),
+                              ts_dur))
                 return bs, br, lr, ts, ca_free, 1
 
         # return last metrics
-        print ("read_kafka() -> there is no messages in the Kafka to read...")
+        #print("read_kafka() -> there is no messages in the Kafka to read...")
         return last_bytes_sent, last_bytes_rcvd, last_lr, last_ts, last_ca, 0
 
 
@@ -237,13 +257,14 @@ def main():
                     break
                 else:
                     sleep(INTERVAL)
-                
-            print("new_bytes_sent[{0}] new_lr[{1}] new_ts[{2}] new_ava_ca[{3}]Mbps, last_bit_rate[{4}]"
-                  .format(bytes_sent,
-                          loss_rate,
-                          ts,
-                          ava_ca/MBPS,
-                          VIDEO_BIT_RATE[last_bit_rate]))
+
+            print("-> last_bit_rate[{0}]Mbps".format(VIDEO_BIT_RATE[last_bit_rate]/1000.0))
+            # print("new_bytes_sent[{0}] new_lr[{1}] new_ts[{2}] new_ava_ca[{3}]Mbps, last_bit_rate[{4}]"
+            #       .format(bytes_sent,
+            #               loss_rate,
+            #               ts,
+            #               ava_ca/MBPS,
+            #               VIDEO_BIT_RATE[last_bit_rate]))
 
             # retrieve previous state
             if len(s_batch) == 0:
@@ -261,8 +282,8 @@ def main():
             # loss rate (array)
             state[2, -1] = float(loss_rate)  # loss_rate
 
-            print("states: bit_rate [{0}] ava_ca [{1}] loss_rate [{2}]"
-                  .format(state[0, -1], state[1, -1], state[2, -1]))
+            # print("states: bit_rate [{0}] ava_ca [{1}] loss_rate [{2}]"
+            #       .format(state[0, -1], state[1, -1], state[2, -1]))
 
             action_prob = actor.predict(np.reshape(state, (1, S_INFO, S_LEN)))
             action_cumsum = np.cumsum(action_prob)
@@ -274,9 +295,9 @@ def main():
  
             # write new bit-rate to Kafka to be delivered to vCompression
             if (last_bit_rate != bit_rate):
-                print("new bit_rate: [{0}] last_bit_rate [{1}]"
-                      .format(VIDEO_BIT_RATE[bit_rate],
-                              VIDEO_BIT_RATE[last_bit_rate]))
+                print("-> new_bit_rate [{0}]Mbps"#" - last_bit_rate [{1}]Mbps"
+                      .format(VIDEO_BIT_RATE[bit_rate]/1000.0,))
+                              #VIDEO_BIT_RATE[last_bit_rate]/1000.0))
                 last_bit_rate = bit_rate
                 write_kafka_uc2_exec(producer, VIDEO_BIT_RATE[bit_rate])
 
