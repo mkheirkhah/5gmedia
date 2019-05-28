@@ -7,7 +7,7 @@ os.environ['CUDA_VISIBLE_DEVICES'] = ''
 from time import sleep
 import numpy as np
 import tensorflow as tf
-import a3c_cno_alt
+import a3c_cno_mks
 from uc2_daemon import get_kafka_producer, write_kafka_uc2_exec
 
 S_INFO = 3  # bit_rate, bytes_sent, loss_rate
@@ -213,7 +213,7 @@ def main():
 
     with tf.Session() as sess:
 
-        actor = a3c_cno_alt.ActorNetwork(
+        actor = a3c_cno_mks.ActorNetwork(
             sess,
             state_dim=[S_INFO, S_LEN],
             action_dim=A_DIM,
