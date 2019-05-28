@@ -53,10 +53,11 @@ RAND_RANGE = 1000
 #NN_MODEL = './trained_models/nn_model_ep_28100_m4_bg5_v20_bg10_l225.ckpt' #[20<30][r4]
 #NN_MODEL = './trained_models/nn_model_ep_22200_m4_bg5_v20_bg10_l350.ckpt' #[08<25][r5]
 #NN_MODEL = './trained_models/nn_model_ep_24300_m4_bg5_v20_bg10_l450.ckpt' #[05<25][r5][some small loss]
-NN_MODEL = './trained_models/nn_model_ep_32500_m4_bg5_v20_bg10_l500.ckpt' #[05<25][r6][Very good! READY!]
+#NN_MODEL = './trained_models/nn_model_ep_32500_m4_bg5_v20_bg10_l500.ckpt' #[05<25][r6][READY_1!]
+NN_MODEL = './trained_models/nn_model_ep_113800_m4_bg5_v20_bg10_l500.ckpt' #[05<25][r6][READY_2! more trained!]
+
 #NN_MODEL = './trained_models/nn_model_ep_22600_m4_bg5_v20_bg10_l500_ch100.ckpt' #[8<25][r4]
 #NN_MODEL = './trained_models/nn_model_ep_130900_m4_bg5_v20_bg10_l500_ch20.ckpt' #[3<25][r5][very little varying]
-##NN_MODEL = './trained_models/nn_model_ep_72500_m4_bg5_v20_bg10_l500_ch20.ckpt' #[3<25][r5][very little varying]
 #NN_MODEL = './trained_models/nn_model_ep_39600_m4_bg5_v20_bg10_l500_ch35.ckpt'  #[8<25][r4][]
 
 #NN_MODEL = './trained_models/nn_model_ep_17700_m4_bg5_v10_bg00_l450.ckpt' #[5<20][r5][some small loss] Almost Perfect!
