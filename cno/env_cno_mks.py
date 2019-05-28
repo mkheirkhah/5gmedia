@@ -10,7 +10,10 @@ FRAME_INTERVAL = 1 #50  # frame
 #VIDEO_SIZE_FILE = './video_size_'
 
 #VIDEO_BIT_RATE     = [3000, 5000, 8000, 12000, 15000, 20000, 25000, 30000, 40000, 50000]
-VIDEO_BIT_RATE_AVG  = [3129, 5216, 8349, 12505, 15630, 20841, 26055, 31294, 41727, 52156]
+#VIDEO_BIT_RATE_AVG = [3129, 5216, 8349, 12505, 15630, 20841, 26055, 31294, 41727, 52156]
+
+#VIDEO_BIT_RATE     = [5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 15000, 20000]
+VIDEO_BIT_RATE_AVG  = [5216, 6500, 7400, 8349, 9400, 10440, 11420, 12630, 15630, 20841]
 
 #VIDEO_BIT_RATE     = [4000, 8000, 12000, 20000, 40000, 45000]  #Kbps
 #VIDEO_BIT_RATE_AVG = [3855, 7551, 11244, 18740, 37480, 42000]  #Kbps
@@ -24,7 +27,9 @@ BACKGROUND_TRAFFIC_4  = [0,  2,  4,  6,  8,  10, 12, 14, 16, 18, 20, 22,
                          24, 26, 28, 30, 32, 34, 36, 38, 40, 38, 36, 34,
                          32, 28, 26, 24, 22, 20, 18, 16, 14, 12, 10, 8, 6, 4, 2]
 
-BACKGROUND_TRAFFIC_5  = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 40, 35, 30, 25, 20, 15, 10, 5, 0]
+BACKGROUND_TRAFFIC_5    = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 40, 35, 30, 25, 20, 15, 10, 5, 0]
+#BACKGROUND_TRAFFIC_5_1 = [0, 2, 4, 6, 8, 10, 12, 14, 15, 14, 12, 10, 8, 6, 4, 2, 0]
+BACKGROUND_TRAFFIC_5_1  = [0, 2, 4, 6, 8, 10, 12, 13, 10, 8, 6, 4, 2, 0]
 
 BACKGROUND_TRAFFIC_6  = [0, 0, 0, 0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10, 10, 10]
 BACKGROUND_TRAFFIC_7  = [0, 0, 0, 0, 0, 0, 0, 0, 20, 20, 20, 20, 20, 20, 20, 20] 
@@ -80,8 +85,8 @@ class Environment:
         return background
     
     def get_background(self, rand1, rand2):
-        index = self.video_chunk_counter % len(BACKGROUND_TRAFFIC_5)
-        background = BACKGROUND_TRAFFIC_5[index] * MBPS #bps
+        index = self.video_chunk_counter % len(BACKGROUND_TRAFFIC_5_1)
+        background = BACKGROUND_TRAFFIC_5_1[index] * MBPS #bps
         background = np.random.normal(background, background / 10.0)
         return background
 
@@ -98,7 +103,7 @@ class Environment:
         # return background
 
     def get_video_chunk(self, quality, video_count, background):
-        print("\n********** get_video_chunk **********")
+        #print("\n********** get_video_chunk **********")
         self.video_chunk_counter += 1  # to keep track of chunks/frames globally
         #video_chunk_size, video_chunk_br = self.get_video_size(quality)
 
@@ -111,7 +116,7 @@ class Environment:
         rand1 = np.random.randint(1, 15)
         rand2 = np.random.randint(1, len(VIDEO_BIT_RATE_AVG))
 
-        capacity = 50000000.0
+        capacity = 20000000.0
         #background = 0.0
         loss_rate = 0.0
         video = 0.0
@@ -134,9 +139,9 @@ class Environment:
             loss_rate = (video + background) - capacity
             loss_rate = 0 if loss_rate < 0 else loss_rate
             loss_rate_frac = loss_rate / float(video + background)
-
-            print("bg [{0}] video[{1}] ava_ca [{2}] ava_ca_frac [{3}] loss_rate [{4}] loss_rate_frac [{5}]"
-                  .format(background/MBPS, video/MBPS, ava_ca/MBPS, ava_ca_frac, loss_rate, loss_rate_frac))
+            ########
+            # print("bg [{0}] video[{1}] ava_ca [{2}] ava_ca_frac [{3}] loss_rate [{4}] loss_rate_frac [{5}]"
+            #       .format(background/MBPS, video/MBPS, ava_ca/MBPS, ava_ca_frac, loss_rate, loss_rate_frac))
             
             ava_ca_frac_list.append(ava_ca_frac) # bytes/s
             loss_rate_frac_list.append(loss_rate_frac)
@@ -164,7 +169,7 @@ class Environment:
         if self.video_chunk_counter >= TOTAL_VIDEO_CHUNCK:
             end_of_video = True
             self.video_chunk_counter = 0
-            print("\n***** end of video ******")
+            #print("\n***** end of video ******")
 
         return end_of_video, \
             mean_loss_rate_frac, \

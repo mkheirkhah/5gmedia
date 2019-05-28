@@ -22,7 +22,10 @@ MODEL_SAVE_INTERVAL = 100
 
 #VIDEO_BIT_RATE  = [300,750,1200,1850,2850,4300]
 #VIDEO_BIT_RATE  = [4000, 8000, 12000, 20000, 40000, 45000]
-VIDEO_BIT_RATE   = [3000, 5000, 8000, 12000, 15000, 20000, 25000, 30000, 40000, 50000]
+#VIDEO_BIT_RATE  = [3000, 5000, 8000, 12000, 15000, 20000, 25000, 30000, 40000, 50000]
+VIDEO_BIT_RATE   = [5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 15000, 20000]
+#CNO_REWARD       = [1, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8]
+CNO_REWARD       = [1, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9]
 
 HD_REWARD = [1, 2, 3, 12, 15, 20]
 BUFFER_NORM_FACTOR = 10.0
@@ -37,9 +40,16 @@ SUMMARY_DIR = './results'
 LOG_FILE = './results/cno_log_alt'
 TEST_LOG_FOLDER = './test_results/'
 TRAIN_TRACES = './cooked_traces/'
+
 #NN_MODEL = './results/pretrain_linear_reward.ckpt'
 #NN_MODEL = './results/nn_model_ep_32500_m4_bg5_v20_bg10_l500.ckpt'
-NN_MODEL = None
+#NN_MODEL = './results/nn_model_ep_32500_m4_bg5_v20_bg10_l500.ckpt'
+#NN_MODEL = './results/nn_model_ep_12800_m4_bg51_v20_bg10_l500_sm1.ckpt'
+#NN_MODEL = './results/nn_model_ep_10800_m4_bg51_v20_bg10_l500_sm1.ckpt' #(used during dry-run)
+
+## [ready for actual demo let's train it more]
+NN_MODEL = './trained_models/nn_model_ep_79000_m4_bg51_v20_bg10_l500_sm1.ckpt' #[<][rg]
+#NN_MODEL = None
 
 CNO_PARA_LOSS_RATE = 500 # weight used in reward function
 #CNO_PARA_FREE_CA = 45
@@ -272,20 +282,28 @@ def agent(agent_id, all_cooked_time, all_cooked_bw, net_params_queue, exp_queue)
             # if rebuf_max < (REBUF_PENALTY * rebuf):
             #     rebuf_max = (rebuf*REBUF_PENALTY)
             #     print (rebuf_max * REBUF_PENALTY)
-            # -- linear reward --
-            #******************** reward function for 5G-MEDIA *****************
+
+            # #******************** reward function for 5G-MEDIA *****************
             reward = VIDEO_BIT_RATE[bit_rate] / M_IN_K \
                 - CNO_PARA_LOSS_RATE * mean_loss_rate \
-                # - SMOOTH_PENALTY * np.abs(VIDEO_BIT_RATE[bit_rate] -
-                #                           VIDEO_BIT_RATE[last_bit_rate]) / M_IN_K
-            #*******************************************************************
-            print("reward[{0}] br[{1}] lr[{2}] smooth[{3}]"
-                  .format(reward,
-                          VIDEO_BIT_RATE[bit_rate] / M_IN_K,
-                          CNO_PARA_LOSS_RATE * mean_loss_rate,
-                          SMOOTH_PENALTY * np.abs(VIDEO_BIT_RATE[bit_rate] -
-                                                  VIDEO_BIT_RATE[last_bit_rate]) / M_IN_K))
+                - SMOOTH_PENALTY * np.abs(CNO_REWARD[bit_rate] -
+                                          CNO_REWARD[last_bit_rate])
 
+            # -- linear reward --
+            # #******************** reward function for 5G-MEDIA *****************
+            # reward = VIDEO_BIT_RATE[bit_rate] / M_IN_K \
+            #     - CNO_PARA_LOSS_RATE * mean_loss_rate \
+            #     # - SMOOTH_PENALTY * np.abs(VIDEO_BIT_RATE[bit_rate] -
+            #     #                           VIDEO_BIT_RATE[last_bit_rate]) / M_IN_K
+            # #*******************************************************************
+            # print("reward[{0}] br[{1}] lr[{2}] smooth[{3}]"
+            #       .format(reward,
+            #               VIDEO_BIT_RATE[bit_rate] / M_IN_K,
+            #               CNO_PARA_LOSS_RATE * mean_loss_rate,
+            #               SMOOTH_PENALTY * np.abs(VIDEO_BIT_RATE[bit_rate] -
+            #                                       VIDEO_BIT_RATE[last_bit_rate]) / M_IN_K))
+
+            
             # #******************** reward function for 5G-MEDIA *****************
             # reward = VIDEO_BIT_RATE[bit_rate] / M_IN_K \
             #     - CNO_PARA_LOSS_RATE * mean_loss_rate \
@@ -359,15 +377,16 @@ def agent(agent_id, all_cooked_time, all_cooked_bw, net_params_queue, exp_queue)
             # loss rate (array)
             state[2, -1] = float(mean_loss_rate)  #fraction
 
-            print("states: bit_rate [{0}] capacity [{1}] loss_rate [{2}]"
-                  .format(state[0, -1], state[1, -1], state[2, -1]))
+            ########
+            # print("states: bit_rate [{0}] capacity [{1}] loss_rate [{2}]"
+            #       .format(state[0, -1], state[1, -1], state[2, -1]))
             #***********************************************************************
 
             # compute action probability vector
             action_prob = actor.predict(np.reshape(state, (1, S_INFO, S_LEN)))
             action_cumsum = np.cumsum(action_prob)
             bit_rate = (action_cumsum > np.random.randint(1, RAND_RANGE) / float(RAND_RANGE)).argmax()
-            print("new bitrate [{0}] last_bit_rate [{1}]".format(bit_rate, last_bit_rate))
+            #print("new bitrate [{0}] last_bit_rate [{1}]".format(bit_rate, last_bit_rate))
 
             # CNO - bitrate is the index of the max value in the action_prob vector
             #bit_rate = np.argmax(action_prob)

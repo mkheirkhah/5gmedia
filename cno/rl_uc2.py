@@ -16,9 +16,11 @@ A_DIM = 10
 ACTOR_LR_RATE = 0.0001
 #CRITIC_LR_RATE = 0.001
 #VIDEO_BIT_RATE = [4000, 8000, 12000, 20000, 40000, 45000]  # Kbps
-VIDEO_BIT_RATE  = [3000, 5000, 8000, 12000, 15000, 20000, 25000, 30000, 40000, 50000]
+#VIDEO_BIT_RATE  = [3000, 5000, 8000, 12000, 15000, 20000, 25000, 30000, 40000, 50000]
+VIDEO_BIT_RATE = [5000, 6000, 7000, 8000, 9000, 10000, 11000, 15000, 19000, 20000]
+
 M_IN_K = 1000.0
-DEFAULT_QUALITY = 1
+DEFAULT_QUALITY = 6 #1
 RANDOM_SEED = 42
 RAND_RANGE = 1000
 
@@ -54,7 +56,14 @@ RAND_RANGE = 1000
 #NN_MODEL = './trained_models/nn_model_ep_22200_m4_bg5_v20_bg10_l350.ckpt' #[08<25][r5]
 #NN_MODEL = './trained_models/nn_model_ep_24300_m4_bg5_v20_bg10_l450.ckpt' #[05<25][r5][some small loss]
 #NN_MODEL = './trained_models/nn_model_ep_32500_m4_bg5_v20_bg10_l500.ckpt' #[05<25][r6][READY_1!]
-NN_MODEL = './trained_models/nn_model_ep_113800_m4_bg5_v20_bg10_l500.ckpt' #[05<25][r6][READY_2! more trained!]
+#NN_MODEL = './trained_models/nn_model_ep_113800_m4_bg5_v20_bg10_l500.ckpt' #[05<25][r6][READY_2! more trained!]
+
+#NN_MODEL = './trained_models/nn_model_ep_12800_m4_bg51_v20_bg10_l500_sm1.ckpt' #[<][rg][]
+#NN_MODEL = './trained_models/nn_model_ep_10800_m4_bg51_v20_bg10_l500_sm1.ckpt' #[<][rg][Run during dry-run]
+#NN_MODEL = './trained_models/nn_model_ep_26800_m4_bg51_v20_bg10_l500_sm1.ckpt' #[<][rg][]
+
+# After dry-run
+NN_MODEL = './trained_models/nn_model_ep_79000_m4_bg51_v20_bg10_l500_sm1.ckpt' #[<][rg][ready for actual demo]
 
 #NN_MODEL = './trained_models/nn_model_ep_22600_m4_bg5_v20_bg10_l500_ch100.ckpt' #[8<25][r4]
 #NN_MODEL = './trained_models/nn_model_ep_130900_m4_bg5_v20_bg10_l500_ch20.ckpt' #[3<25][r5][very little varying]
@@ -67,7 +76,7 @@ NN_MODEL = './trained_models/nn_model_ep_113800_m4_bg5_v20_bg10_l500.ckpt' #[05<
 
 INTERVAL = 1.0
 MBPS = 1000000.0
-CAPACITY = 50000000.0
+CAPACITY = 20000000.0
 
 def extract_ts(line):
     extract = line[line.find("T") + 1:line.find("Z")]
@@ -295,12 +304,12 @@ def main():
             s_batch.append(state)
  
             # write new bit-rate to Kafka to be delivered to vCompression
-            if (last_bit_rate != bit_rate):
-                print("-> new_bit_rate [{0}]Mbps"#" - last_bit_rate [{1}]Mbps"
-                      .format(VIDEO_BIT_RATE[bit_rate]/1000.0,))
-                              #VIDEO_BIT_RATE[last_bit_rate]/1000.0))
-                last_bit_rate = bit_rate
-                write_kafka_uc2_exec(producer, VIDEO_BIT_RATE[bit_rate])
+            #if (last_bit_rate != bit_rate):
+            print("-> new_bit_rate [{0}]Mbps"#" - last_bit_rate [{1}]Mbps"
+                  .format(VIDEO_BIT_RATE[bit_rate]/1000.0,))
+            #VIDEO_BIT_RATE[last_bit_rate]/1000.0))
+            last_bit_rate = bit_rate
+            write_kafka_uc2_exec(producer, VIDEO_BIT_RATE[bit_rate])
 
             # sleep for an INTERVAL before begin reading from Kafka again
             sleep(INTERVAL)
