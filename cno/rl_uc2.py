@@ -20,10 +20,11 @@ ACTOR_LR_RATE = 0.0001
 VIDEO_BIT_RATE = [5000, 6000, 7000, 8000, 9000, 10000, 11000, 15000, 19000, 20000]
 
 M_IN_K = 1000.0
-DEFAULT_QUALITY = 6 #1
+DEFAULT_QUALITY = 1
 RANDOM_SEED = 42
 RAND_RANGE = 1000
 
+#rtmp://192.168.83.30/live/qoe
 #NN_MODEL = './trained_models/mks_loss_1000.ckpt'
 #NN_MODEL = './trained_models/mks_loss_45.ckpt'
 #NN_MODEL = './trained_models/mks_loss_450_nosmth.ckpt'
@@ -59,11 +60,15 @@ RAND_RANGE = 1000
 #NN_MODEL = './trained_models/nn_model_ep_113800_m4_bg5_v20_bg10_l500.ckpt' #[05<25][r6][READY_2! more trained!]
 
 #NN_MODEL = './trained_models/nn_model_ep_12800_m4_bg51_v20_bg10_l500_sm1.ckpt' #[<][rg][]
-#NN_MODEL = './trained_models/nn_model_ep_10800_m4_bg51_v20_bg10_l500_sm1.ckpt' #[<][rg][Run during dry-run]
+NN_MODEL = './trained_models/nn_model_ep_10800_m4_bg51_v20_bg10_l500_sm1.ckpt' #[5<11][rg6][Run during dry-run]
+#NN_MODEL = './trained_models/nn_model_ep_40600_m4_bg51_v20_bg10_l500_sm1.ckpt' #[5<11][rg6][re-run dry-run more training]
 #NN_MODEL = './trained_models/nn_model_ep_26800_m4_bg51_v20_bg10_l500_sm1.ckpt' #[<][rg][]
 
 # After dry-run
-NN_MODEL = './trained_models/nn_model_ep_79000_m4_bg51_v20_bg10_l500_sm1.ckpt' #[<][rg][ready for actual demo]
+#NN_MODEL = './trained_models/nn_model_ep_79000_m4_bg51_v20_bg10_l500_sm1.ckpt'  #[5<11][r5][ready f demo]
+#NN_MODEL = './trained_models/nn_model_ep_48700_m4_bg51_v20_bg10_l500_sm1.ckpt'  #[5<11][r4][more training]
+#NN_MODEL = './trained_models/nn_model_ep_639900_m4_bg51_v20_bg10_l500_sm1.ckpt' #[5<15][r1][more more training]
+
 
 #NN_MODEL = './trained_models/nn_model_ep_22600_m4_bg5_v20_bg10_l500_ch100.ckpt' #[8<25][r4]
 #NN_MODEL = './trained_models/nn_model_ep_130900_m4_bg5_v20_bg10_l500_ch20.ckpt' #[3<25][r5][very little varying]

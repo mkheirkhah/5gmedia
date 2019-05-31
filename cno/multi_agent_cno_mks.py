@@ -15,8 +15,8 @@ S_LEN = 8  # take how many frames in the past
 A_DIM = 10
 ACTOR_LR_RATE =  0.0001
 CRITIC_LR_RATE = 0.001
-#NUM_AGENTS = 16
-NUM_AGENTS = 1
+NUM_AGENTS = 2
+#NUM_AGENTS = 1
 TRAIN_SEQ_LEN = 100  # take as a train batch
 MODEL_SAVE_INTERVAL = 100
 
@@ -24,8 +24,8 @@ MODEL_SAVE_INTERVAL = 100
 #VIDEO_BIT_RATE  = [4000, 8000, 12000, 20000, 40000, 45000]
 #VIDEO_BIT_RATE  = [3000, 5000, 8000, 12000, 15000, 20000, 25000, 30000, 40000, 50000]
 VIDEO_BIT_RATE   = [5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 15000, 20000]
-#CNO_REWARD       = [1, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8]
-CNO_REWARD       = [1, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9]
+CNO_REWARD       = [1, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8] # dry-run
+#CNO_REWARD       = [1, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9]
 
 HD_REWARD = [1, 2, 3, 12, 15, 20]
 BUFFER_NORM_FACTOR = 10.0
@@ -45,11 +45,11 @@ TRAIN_TRACES = './cooked_traces/'
 #NN_MODEL = './results/nn_model_ep_32500_m4_bg5_v20_bg10_l500.ckpt'
 #NN_MODEL = './results/nn_model_ep_32500_m4_bg5_v20_bg10_l500.ckpt'
 #NN_MODEL = './results/nn_model_ep_12800_m4_bg51_v20_bg10_l500_sm1.ckpt'
-#NN_MODEL = './results/nn_model_ep_10800_m4_bg51_v20_bg10_l500_sm1.ckpt' #(used during dry-run)
+#NN_MODEL = './results/nn_model_ep_10800_m4_bg51_v20_bg10_l500_sm1.ckpt' #(Dry-run)
 
-## [ready for actual demo let's train it more]
-NN_MODEL = './trained_models/nn_model_ep_79000_m4_bg51_v20_bg10_l500_sm1.ckpt' #[<][rg]
-#NN_MODEL = None
+## [ready for actual demo... but let's train it a little bit more]
+#NN_MODEL = './trained_models/nn_model_ep_79000_m4_bg51_v20_bg10_l500_sm1.ckpt' #[<][rg]
+NN_MODEL = None
 
 CNO_PARA_LOSS_RATE = 500 # weight used in reward function
 #CNO_PARA_FREE_CA = 45
