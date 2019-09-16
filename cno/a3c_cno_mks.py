@@ -1,3 +1,13 @@
+#################################################################################
+# Title:       Implementation of an RL algortihm for UC2, 5G-MEDIA project
+# Author:      Morteza Kheirkhah
+# Institution: University College London (UCL), UK
+# Email:       m.kheirkhah@ucl.ac.uk
+# Homepage:    http://www.uclmail.net/users/m.kheirkhah/
+# Demo:        https://youtu.be/2BToKr4jVAI
+# Note:        Original code has been written for the Pensieve paper (SIGCOMM'17)
+#################################################################################
+
 import numpy as np
 import tensorflow as tf
 import tflearn

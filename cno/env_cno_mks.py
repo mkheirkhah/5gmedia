@@ -1,3 +1,13 @@
+#################################################################################
+# Title:       Implementation of an RL algortihm for UC2, 5G-MEDIA project
+# Author:      Morteza Kheirkhah
+# Institution: University College London (UCL), UK
+# Email:       m.kheirkhah@ucl.ac.uk
+# Homepage:    http://www.uclmail.net/users/m.kheirkhah/
+# Demo:        https://youtu.be/2BToKr4jVAI
+# Note:        Original code has been written for the Pensieve paper (SIGCOMM'17)
+#################################################################################
+
 import numpy as np
 
 MBPS = 1000000.0
@@ -106,7 +116,7 @@ class Environment:
         #print("\n********** get_video_chunk **********")
         self.video_chunk_counter += 1  # to keep track of chunks/frames globally
         #video_chunk_size, video_chunk_br = self.get_video_size(quality)
-
+        
         loss_rate_list = []
         ava_ca_list = []
         loss_rate_frac_list = []

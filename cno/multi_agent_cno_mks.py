@@ -1,4 +1,15 @@
+#################################################################################
+# Title:       Implementation of an RL algortihm for UC2, 5G-MEDIA project
+# Author:      Morteza Kheirkhah
+# Institution: University College London (UCL), UK
+# Email:       m.kheirkhah@ucl.ac.uk
+# Homepage:    http://www.uclmail.net/users/m.kheirkhah/
+# Demo:        https://youtu.be/2BToKr4jVAI
+# Note:        Original code has been written for the Pensieve paper (SIGCOMM'17)
+#################################################################################
+
 import os
+import sys
 import logging
 import numpy as np
 import multiprocessing as mp
@@ -8,7 +19,6 @@ import tensorflow as tf
 import env_cno_mks
 import a3c_cno_mks
 import load_trace
-
 
 S_INFO = 3  # bit_rate, buffer_size, next_chunk_size, bandwidth_measurement(throughput and time), chunk_til_video_end
 S_LEN = 8  # take how many frames in the past
@@ -464,6 +474,22 @@ def agent(agent_id, all_cooked_time, all_cooked_bw, net_params_queue, exp_queue)
 
 
 def main():
+
+    alpha = CNO_PARA_LOSS_RATE
+    actor_learning_rate = ACTOR_LR_RATE
+    bg_traffic_pattern = 0.0    # model_1
+    link_capacity = 20000000    # 20Mbps
+
+    try:
+        alpha               = sys.argv[1]
+        bg_traffic_pattern  = sys.argv[2]
+        actor_learning_rate = sys.argv[3]
+        link_capacity       = sys.argv[4]
+    except Exception as ex:
+        print ("Not all inputs has set via cmd -> alpha[{0}] bg_tp[{1}] a_lr[{2}] lc[{3}]".format(alpha,
+                                                                                                  actor_learning_rate,
+                                                                                                  bg_traffic_pattern,
+                                                                                                  link_capacity))
 
     np.random.seed(RANDOM_SEED)
     assert len(VIDEO_BIT_RATE) == A_DIM
