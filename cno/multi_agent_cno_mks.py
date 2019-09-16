@@ -18,14 +18,13 @@ import tensorflow as tf
 import env_cno_mks
 import a3c_cno_mks
 import load_trace
+import argparse
 
 S_INFO = 3  # bit_rate, buffer_size, next_chunk_size, bandwidth_measurement(throughput and time), chunk_til_video_end
 S_LEN = 8  # take how many frames in the past
 A_DIM = 10
 ACTOR_LR_RATE =  0.0001
 CRITIC_LR_RATE = 0.001
-NUM_AGENTS = 2
-#NUM_AGENTS = 1
 TRAIN_SEQ_LEN = 100  # take as a train batch
 MODEL_SAVE_INTERVAL = 100
 
@@ -104,10 +103,10 @@ def testing(epoch, nn_model, log_file):
     log_file.flush()
 
 
-def central_agent(net_params_queues, exp_queues, alpha, btf, alr, clr, lc, name_nn_model):
+def central_agent(net_params_queues, exp_queues, alpha, btf, alr, clr, lc, name_nn_model, parallel_agents):
 
-    assert len(net_params_queues) == NUM_AGENTS
-    assert len(exp_queues) == NUM_AGENTS
+    assert len(net_params_queues) == parallel_agents
+    assert len(exp_queues) == parallel_agents
 
     logging.basicConfig(filename=LOG_FILE + '_central',
                         filemode='w',
@@ -141,7 +140,7 @@ def central_agent(net_params_queues, exp_queues, alpha, btf, alr, clr, lc, name_
             # synchronize the network parameters of work agent
             actor_net_params = actor.get_network_params()
             critic_net_params = critic.get_network_params()
-            for i in range(NUM_AGENTS):
+            for i in range(parallel_agents):
                 net_params_queues[i].put([actor_net_params, critic_net_params])
                 # Note: this is synchronous version of the parallel training,
                 # which is easier to understand and probe. The framework can be
@@ -163,7 +162,7 @@ def central_agent(net_params_queues, exp_queues, alpha, btf, alr, clr, lc, name_
             actor_gradient_batch = []
             critic_gradient_batch = []
 
-            for i in range(NUM_AGENTS):
+            for i in range(parallel_agents):
                 s_batch, a_batch, r_batch, terminal, info = exp_queues[i].get()
 
                 actor_gradient, critic_gradient, td_batch = \
@@ -183,7 +182,7 @@ def central_agent(net_params_queues, exp_queues, alpha, btf, alr, clr, lc, name_
                 total_entropy += np.sum(info['entropy'])
 
             # compute aggregated gradient
-            assert NUM_AGENTS == len(actor_gradient_batch)
+            assert parallel_agents == len(actor_gradient_batch)
             assert len(actor_gradient_batch) == len(critic_gradient_batch)
             # assembled_actor_gradient = actor_gradient_batch[0]
             # assembled_critic_gradient = critic_gradient_batch[0]
@@ -470,41 +469,64 @@ def agent(agent_id, all_cooked_time, all_cooked_bw, net_params_queue,
 
 
 def main():
+    # Parameter configuration
+    parser = argparse.ArgumentParser(description='Parameters Setting for UC2 of the 5G-MEDIA project.')
+    parser.add_argument("-a",
+                        help="weight factor of the loss rate in the reward function, default=500",
+                        type=int)
+    parser.add_argument("-bgt",
+                        help="background traffic",
+                        type=int)
+    parser.add_argument("-alr",
+                        help="actor learning rate, default=0.0001",
+                        type=float)
+    parser.add_argument("-clr",
+                        help="critic learning rate, default=0.001",
+                        type=float)
+    parser.add_argument("-lc",
+                        help="link capacity, default=20000000 (20Mbps)",
+                        type=int)
+    parser.add_argument("-nn",
+                        help="name for the trained neural network model, default='NN_MODEL'",
+                        type=str)
+    parser.add_argument("-pa",
+                        help="Number of parallel agents, default=1",
+                        type=int)
+    args = parser.parse_args()
+    
+    alpha = args.a if args.a else 500
+    bg_traffic_pattern = args.bgt if args.bgt else 0  # model_1
+    actor_learning_rate = args.alr if args.alr else ACTOR_LR_RATE
+    critic_learning_rate = args.clr if args.clr else CRITIC_LR_RATE
+    link_capacity = args.lc if args.lc else 20000000  # 20Mbps
+    name_nn_model = args.nn if args.nn else "NN_MODEL"
+    parallel_agents = args.pa if args.pa else 1
 
-    alpha = 500
-    bg_traffic_pattern = 0.0  # model_1
-    actor_learning_rate = ACTOR_LR_RATE
-    critic_learning_rate = CRITIC_LR_RATE
-    link_capacity = 20000000  # 20Mbps
-    name_nn_model = "MKS_NN_MODEL"
-
-    try:
-        alpha                = sys.argv[1]
-        bg_traffic_pattern   = sys.argv[2]
-        actor_learning_rate  = sys.argv[3]
-        critic_learning_rate = sys.argv[4]
-        link_capacity        = sys.argv[5]
-        name_nn_model        = sys.argv[6]
-    except Exception as ex:
-        print ("Params: alpha[{0}] bg[{1}] a_lr[{2}] "
-               "c_lr [{3}]] lc[{4}] name[{5}]".format(alpha,
-                                                      bg_traffic_pattern,
-                                                      actor_learning_rate,
-                                                      critic_learning_rate,
-                                                      link_capacity,
-                                                      name_nn_model))
-
+    print ("***************************************\n"
+           "***************************************"
+           "\nalpha[{0}] \nbg[{1}] \na_lr[{2}]"
+           "\nc_lr [{3}]] \nlc[{4}] \nname[{5}]"
+           "\nparallel_agents[{6}]\n"
+           "***************************************\n"
+           "***************************************".format(alpha,
+                                                            bg_traffic_pattern,
+                                                            actor_learning_rate,
+                                                            critic_learning_rate,
+                                                            link_capacity,
+                                                            name_nn_model,
+                                                            parallel_agents))
+    
     np.random.seed(RANDOM_SEED)
     assert len(VIDEO_BIT_RATE) == A_DIM
     
-    # create result directory
+    # create result directory (if not exists)
     if not os.path.exists(SUMMARY_DIR):
         os.makedirs(SUMMARY_DIR)
 
     # inter-process communication queues
     net_params_queues = []
     exp_queues = []
-    for i in range(NUM_AGENTS):
+    for i in range(parallel_agents):
         net_params_queues.append(mp.Queue(1))
         exp_queues.append(mp.Queue(1))
 
@@ -517,14 +539,14 @@ def main():
                                    actor_learning_rate,
                                    critic_learning_rate,
                                    link_capacity,
-                                   name_nn_model))
+                                   name_nn_model, parallel_agents))
     
     coordinator.start()
     
     all_cooked_time, all_cooked_bw, _ = load_trace.load_trace(TRAIN_TRACES)
     agents = []
     
-    for i in range(NUM_AGENTS):
+    for i in range(parallel_agents):
         agents.append(mp.Process(target=agent,
                                  args=(i, all_cooked_time, all_cooked_bw,
                                        net_params_queues[i],
@@ -535,10 +557,10 @@ def main():
                                        critic_learning_rate,
                                        link_capacity,
                                        name_nn_model)))
-    
-    for i in range(NUM_AGENTS):
+        
+    for i in range(parallel_agents):
         agents[i].start()
-    
+        
     # wait unit training is done
     coordinator.join()
 
