@@ -1,12 +1,11 @@
-#################################################################################
-# Title:       Implementation of an RL algortihm for UC2, 5G-MEDIA project
+###########################################################################
+# Title:       Implementation of RL algortihm for UC2, 5G-MEDIA project
 # Author:      Morteza Kheirkhah
 # Institution: University College London (UCL), UK
 # Email:       m.kheirkhah@ucl.ac.uk
 # Homepage:    http://www.uclmail.net/users/m.kheirkhah/
-# Demo:        https://youtu.be/2BToKr4jVAI
-# Note:        Original code has been written for the Pensieve paper (SIGCOMM'17)
-#################################################################################
+# Note:        Original code has written for the Pensive paper (SIGCOMM'18)
+###########################################################################
 
 import numpy as np
 
@@ -112,8 +111,9 @@ class Environment:
         #     background = np.random.normal(bitrate, bitrate / 10.0)
         # return background
 
-    def get_video_chunk(self, quality, video_count, background):
-        #print("\n********** get_video_chunk **********")
+    def get_video_chunk(self, quality, video_count, background, btf, lc):
+        # print("\n********** get_video_chunk **********")
+        # print(btf, lc)
         self.video_chunk_counter += 1  # to keep track of chunks/frames globally
         #video_chunk_size, video_chunk_br = self.get_video_size(quality)
         
@@ -126,7 +126,7 @@ class Environment:
         rand1 = np.random.randint(1, 15)
         rand2 = np.random.randint(1, len(VIDEO_BIT_RATE_AVG))
 
-        capacity = 20000000.0
+        capacity = lc
         #background = 0.0
         loss_rate = 0.0
         video = 0.0

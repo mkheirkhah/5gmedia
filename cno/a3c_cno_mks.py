@@ -4,7 +4,6 @@
 # Institution: University College London (UCL), UK
 # Email:       m.kheirkhah@ucl.ac.uk
 # Homepage:    http://www.uclmail.net/users/m.kheirkhah/
-# Demo:        https://youtu.be/2BToKr4jVAI
 # Note:        Original code has been written for the Pensieve paper (SIGCOMM'17)
 #################################################################################
 

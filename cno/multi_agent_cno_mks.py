@@ -4,7 +4,6 @@
 # Institution: University College London (UCL), UK
 # Email:       m.kheirkhah@ucl.ac.uk
 # Homepage:    http://www.uclmail.net/users/m.kheirkhah/
-# Demo:        https://youtu.be/2BToKr4jVAI
 # Note:        Original code has been written for the Pensieve paper (SIGCOMM'17)
 #################################################################################
 
@@ -105,7 +104,7 @@ def testing(epoch, nn_model, log_file):
     log_file.flush()
 
 
-def central_agent(net_params_queues, exp_queues):
+def central_agent(net_params_queues, exp_queues, alpha, btf, alr, clr, lc, name_nn_model):
 
     assert len(net_params_queues) == NUM_AGENTS
     assert len(exp_queues) == NUM_AGENTS
@@ -118,10 +117,10 @@ def central_agent(net_params_queues, exp_queues):
 
         actor = a3c_cno_mks.ActorNetwork(sess,
                                  state_dim=[S_INFO, S_LEN], action_dim=A_DIM,
-                                 learning_rate=ACTOR_LR_RATE)
+                                         learning_rate=alr)
         critic = a3c_cno_mks.CriticNetwork(sess,
                                    state_dim=[S_INFO, S_LEN],
-                                   learning_rate=CRITIC_LR_RATE)
+                                           learning_rate=clr)
 
         summary_ops, summary_vars = a3c_cno_mks.build_summaries()
 
@@ -220,16 +219,14 @@ def central_agent(net_params_queues, exp_queues):
 
             if epoch % MODEL_SAVE_INTERVAL == 0:
                 # Save the neural net parameters to disk.
-                save_path = saver.save(sess, SUMMARY_DIR + "/nn_model_ep_" +
-                                       str(epoch) + ".ckpt")
+                save_path = saver.save(sess, SUMMARY_DIR + "/" + name_nn_model + "_" + str(epoch) + ".ckpt")
                 logging.info("Model saved in file: " + save_path)
-                # MKS - turn off testing
-                # testing(epoch, 
-                #     SUMMARY_DIR + "/nn_model_ep_" + str(epoch) + ".ckpt", 
-                #     test_log_file)
+                # MKS: turning off testing
+                # testing(epoch, SUMMARY_DIR + "/"+ name_nn_model +"_" + str(epoch) + ".ckpt", test_log_file)
 
 
-def agent(agent_id, all_cooked_time, all_cooked_bw, net_params_queue, exp_queue):
+def agent(agent_id, all_cooked_time, all_cooked_bw, net_params_queue,
+          exp_queue, alpha, btf, alr, clr, lc, name_nn_model):
 
     net_env = env_cno_mks.Environment(all_cooked_time=all_cooked_time,
                               all_cooked_bw=all_cooked_bw,
@@ -237,13 +234,12 @@ def agent(agent_id, all_cooked_time, all_cooked_bw, net_params_queue, exp_queue)
 
     with tf.Session() as sess, open(LOG_FILE + '_agent_' + str(agent_id), 'w') as log_file, \
          open(LOG_FILE + '_agent_' + str(agent_id) + '_alt', 'w') as lf:
-        
         actor = a3c_cno_mks.ActorNetwork(sess,
                                  state_dim=[S_INFO, S_LEN], action_dim=A_DIM,
-                                 learning_rate=ACTOR_LR_RATE)
+                                         learning_rate=alr)
         critic = a3c_cno_mks.CriticNetwork(sess,
                                    state_dim=[S_INFO, S_LEN],
-                                   learning_rate=CRITIC_LR_RATE)
+                                           learning_rate=clr)
 
         # initial synchronization of the network parameters from the coordinator
         actor_net_params, critic_net_params = net_params_queue.get()
@@ -279,7 +275,7 @@ def agent(agent_id, all_cooked_time, all_cooked_bw, net_params_queue, exp_queue)
             #delay, sleep_time, buffer_size, rebuf, \
             #video_chunk_size, mean_throughput_trace, \
             end_of_video, mean_loss_rate, mean_free_ca, mean_lr, mean_ca = \
-                net_env.get_video_chunk(bit_rate, video_count, background)
+                net_env.get_video_chunk(bit_rate, video_count, background, btf, lc)
             
             # time_stamp += delay  # in ms
             # time_stamp += sleep_time  # in ms
@@ -475,21 +471,28 @@ def agent(agent_id, all_cooked_time, all_cooked_bw, net_params_queue, exp_queue)
 
 def main():
 
-    alpha = CNO_PARA_LOSS_RATE
+    alpha = 500
+    bg_traffic_pattern = 0.0  # model_1
     actor_learning_rate = ACTOR_LR_RATE
-    bg_traffic_pattern = 0.0    # model_1
-    link_capacity = 20000000    # 20Mbps
+    critic_learning_rate = CRITIC_LR_RATE
+    link_capacity = 20000000  # 20Mbps
+    name_nn_model = "MKS_NN_MODEL"
 
     try:
-        alpha               = sys.argv[1]
-        bg_traffic_pattern  = sys.argv[2]
-        actor_learning_rate = sys.argv[3]
-        link_capacity       = sys.argv[4]
+        alpha                = sys.argv[1]
+        bg_traffic_pattern   = sys.argv[2]
+        actor_learning_rate  = sys.argv[3]
+        critic_learning_rate = sys.argv[4]
+        link_capacity        = sys.argv[5]
+        name_nn_model        = sys.argv[6]
     except Exception as ex:
-        print ("Not all inputs has set via cmd -> alpha[{0}] bg_tp[{1}] a_lr[{2}] lc[{3}]".format(alpha,
-                                                                                                  actor_learning_rate,
-                                                                                                  bg_traffic_pattern,
-                                                                                                  link_capacity))
+        print ("Params: alpha[{0}] bg[{1}] a_lr[{2}] "
+               "c_lr [{3}]] lc[{4}] name[{5}]".format(alpha,
+                                                      bg_traffic_pattern,
+                                                      actor_learning_rate,
+                                                      critic_learning_rate,
+                                                      link_capacity,
+                                                      name_nn_model))
 
     np.random.seed(RANDOM_SEED)
     assert len(VIDEO_BIT_RATE) == A_DIM
@@ -508,7 +511,13 @@ def main():
     # create a coordinator and multiple agent processes
     # (note: threading is not desirable due to python GIL)
     coordinator = mp.Process(target=central_agent,
-                             args=(net_params_queues, exp_queues))
+                             args=(net_params_queues, exp_queues,
+                                   alpha,
+                                   bg_traffic_pattern,
+                                   actor_learning_rate,
+                                   critic_learning_rate,
+                                   link_capacity,
+                                   name_nn_model))
     
     coordinator.start()
     
@@ -519,7 +528,13 @@ def main():
         agents.append(mp.Process(target=agent,
                                  args=(i, all_cooked_time, all_cooked_bw,
                                        net_params_queues[i],
-                                       exp_queues[i])))
+                                       exp_queues[i],
+                                       alpha,
+                                       bg_traffic_pattern,
+                                       actor_learning_rate,
+                                       critic_learning_rate,
+                                       link_capacity,
+                                       name_nn_model)))
     
     for i in range(NUM_AGENTS):
         agents[i].start()
