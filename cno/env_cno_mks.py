@@ -60,8 +60,7 @@ BACKGROUND_TRAFFIC_0  = [BACKGROUND_TRAFFIC_1, BACKGROUND_TRAFFIC_2,
 # TRAFFIC_MODEL = ALGO[0]
 
 class Environment:
-    def __init__(self, all_cooked_time, all_cooked_bw,
-                 random_seed=RANDOM_SEED):
+    def __init__(self, all_cooked_time, all_cooked_bw, random_seed=RANDOM_SEED):
         np.random.seed(random_seed)
 
         self.video_chunk_counter = 0

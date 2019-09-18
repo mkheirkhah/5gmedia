@@ -7,8 +7,9 @@
 # Note:        Original code has been written for the Pensieve paper (SIGCOMM'17)
 #################################################################################
 
+import math
 import os
-import sys
+# import sys
 import logging
 import numpy as np
 import multiprocessing as mp
@@ -21,23 +22,23 @@ import load_trace
 import argparse
 
 S_INFO = 3  # bit_rate, buffer_size, next_chunk_size, bandwidth_measurement(throughput and time), chunk_til_video_end
-S_LEN = 8  # take how many frames in the past
-A_DIM = 10
-ACTOR_LR_RATE =  0.0001
-CRITIC_LR_RATE = 0.001
+S_LEN = 8   # take how many frames in the past
+# A_DIM = 10
+# ACTOR_LR_RATE =  0.0001
+# CRITIC_LR_RATE = 0.001
 TRAIN_SEQ_LEN = 100  # take as a train batch
 MODEL_SAVE_INTERVAL = 100
 
-#VIDEO_BIT_RATE  = [300,750,1200,1850,2850,4300]
-#VIDEO_BIT_RATE  = [4000, 8000, 12000, 20000, 40000, 45000]
-#VIDEO_BIT_RATE  = [3000, 5000, 8000, 12000, 15000, 20000, 25000, 30000, 40000, 50000]
-VIDEO_BIT_RATE   = [5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 15000, 20000]
+# VIDEO_BIT_RATE  = [300,750,1200,1850,2850,4300]
+# VIDEO_BIT_RATE  = [4000, 8000, 12000, 20000, 40000, 45000]
+# VIDEO_BIT_RATE  = [3000, 5000, 8000, 12000, 15000, 20000, 25000, 30000, 40000, 50000]
+# VIDEO_BIT_RATE  = [5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 15000, 20000]
 CNO_REWARD       = [1, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8] # dry-run
-#CNO_REWARD       = [1, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9]
+# CNO_REWARD      = [1, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9]
 
-HD_REWARD = [1, 2, 3, 12, 15, 20]
-BUFFER_NORM_FACTOR = 10.0
-CHUNK_TIL_VIDEO_END_CAP = 48.0
+# HD_REWARD = [1, 2, 3, 12, 15, 20]
+# BUFFER_NORM_FACTOR = 10.0
+# CHUNK_TIL_VIDEO_END_CAP = 48.0
 M_IN_K = 1000.0
 #REBUF_PENALTY = 4.3  # 1 sec rebuffering -> 3 Mbps
 SMOOTH_PENALTY = 1
@@ -59,51 +60,52 @@ TRAIN_TRACES = './cooked_traces/'
 #NN_MODEL = './trained_models/nn_model_ep_79000_m4_bg51_v20_bg10_l500_sm1.ckpt' #[<][rg]
 NN_MODEL = None
 
-CNO_PARA_LOSS_RATE = 500 # weight used in reward function
-#CNO_PARA_FREE_CA = 45
+# CNO_PARA_LOSS_RATE = 500 # weight used in reward function;
+# CNO_PARA_FREE_CA = 45
 
-def testing(epoch, nn_model, log_file):
-    # clean up the test results folder
-    os.system('rm -r ' + TEST_LOG_FOLDER)
-    os.system('mkdir ' + TEST_LOG_FOLDER)
+# def testing(epoch, nn_model, log_file):
+#     # clean up the test results folder
+#     os.system('rm -r ' + TEST_LOG_FOLDER)
+#     os.system('mkdir ' + TEST_LOG_FOLDER)
     
-    # run test script
-    os.system('python rl_test_cno_alt.py ' + nn_model)
+#     # run test script
+#     os.system('python rl_test_cno_alt.py ' + nn_model)
     
-    # append test performance to the log
-    rewards = []
-    test_log_files = os.listdir(TEST_LOG_FOLDER)
-    for test_log_file in test_log_files:
-        reward = []
-        with open(TEST_LOG_FOLDER + test_log_file, 'rb') as f:
-            for line in f:
-                parse = line.split()
-                try:
-                    reward.append(float(parse[-1]))
-                except IndexError:
-                    break
-        rewards.append(np.sum(reward[1:]))
+#     # append test performance to the log
+#     rewards = []
+#     test_log_files = os.listdir(TEST_LOG_FOLDER)
+#     for test_log_file in test_log_files:
+#         reward = []
+#         with open(TEST_LOG_FOLDER + test_log_file, 'rb') as f:
+#             for line in f:
+#                 parse = line.split()
+#                 try:
+#                     reward.append(float(parse[-1]))
+#                 except IndexError:
+#                     break
+#         rewards.append(np.sum(reward[1:]))
 
-    rewards = np.array(rewards)
+#     rewards = np.array(rewards)
 
-    rewards_min = np.min(rewards)
-    rewards_5per = np.percentile(rewards, 5)
-    rewards_mean = np.mean(rewards)
-    rewards_median = np.percentile(rewards, 50)
-    rewards_95per = np.percentile(rewards, 95)
-    rewards_max = np.max(rewards)
+#     rewards_min = np.min(rewards)
+#     rewards_5per = np.percentile(rewards, 5)
+#     rewards_mean = np.mean(rewards)
+#     rewards_median = np.percentile(rewards, 50)
+#     rewards_95per = np.percentile(rewards, 95)
+#     rewards_max = np.max(rewards)
 
-    log_file.write(str(epoch) + '\t' +
-                   str(rewards_min) + '\t' +
-                   str(rewards_5per) + '\t' +
-                   str(rewards_mean) + '\t' +
-                   str(rewards_median) + '\t' +
-                   str(rewards_95per) + '\t' +
-                   str(rewards_max) + '\n')
-    log_file.flush()
+#     log_file.write(str(epoch) + '\t' +
+#                    str(rewards_min) + '\t' +
+#                    str(rewards_5per) + '\t' +
+#                    str(rewards_mean) + '\t' +
+#                    str(rewards_median) + '\t' +
+#                    str(rewards_95per) + '\t' +
+#                    str(rewards_max) + '\n')
+#     log_file.flush()
 
 
-def central_agent(net_params_queues, exp_queues, alpha, btf, alr, clr, lc, name_nn_model, parallel_agents):
+def central_agent(net_params_queues, exp_queues,
+                  alpha, btf, alr, clr, lc, name_nn_model, parallel_agents, dimension, video_bit_rates):
 
     assert len(net_params_queues) == parallel_agents
     assert len(exp_queues) == parallel_agents
@@ -113,12 +115,12 @@ def central_agent(net_params_queues, exp_queues, alpha, btf, alr, clr, lc, name_
                         level=logging.INFO)
 
     with tf.Session() as sess, open(LOG_FILE + '_test', 'wb') as test_log_file:
-
+        # create actor and critic objects
         actor = a3c_cno_mks.ActorNetwork(sess,
-                                 state_dim=[S_INFO, S_LEN], action_dim=A_DIM,
+                                         state_dim=[S_INFO, S_LEN], action_dim=dimension,
                                          learning_rate=alr)
         critic = a3c_cno_mks.CriticNetwork(sess,
-                                   state_dim=[S_INFO, S_LEN],
+                                           state_dim=[S_INFO, S_LEN],
                                            learning_rate=clr)
 
         summary_ops, summary_vars = a3c_cno_mks.build_summaries()
@@ -223,21 +225,22 @@ def central_agent(net_params_queues, exp_queues, alpha, btf, alr, clr, lc, name_
                 # MKS: turning off testing
                 # testing(epoch, SUMMARY_DIR + "/"+ name_nn_model +"_" + str(epoch) + ".ckpt", test_log_file)
 
+def agent(agent_id, all_cooked_time, all_cooked_bw, net_params_queue, exp_queue,
+          alpha, btf, alr, clr, lc, name_nn_model, dimension, video_bit_rates):
 
-def agent(agent_id, all_cooked_time, all_cooked_bw, net_params_queue,
-          exp_queue, alpha, btf, alr, clr, lc, name_nn_model):
-
+    # agent id would be used as a seed to randomize env between agents
     net_env = env_cno_mks.Environment(all_cooked_time=all_cooked_time,
-                              all_cooked_bw=all_cooked_bw,
-                              random_seed=agent_id)
+                                      all_cooked_bw=all_cooked_bw,
+                                      random_seed=agent_id)
 
     with tf.Session() as sess, open(LOG_FILE + '_agent_' + str(agent_id), 'w') as log_file, \
          open(LOG_FILE + '_agent_' + str(agent_id) + '_alt', 'w') as lf:
+        # create actor and critic objects
         actor = a3c_cno_mks.ActorNetwork(sess,
-                                 state_dim=[S_INFO, S_LEN], action_dim=A_DIM,
+                                         state_dim=[S_INFO, S_LEN], action_dim=dimension,
                                          learning_rate=alr)
         critic = a3c_cno_mks.CriticNetwork(sess,
-                                   state_dim=[S_INFO, S_LEN],
+                                           state_dim=[S_INFO, S_LEN],
                                            learning_rate=clr)
 
         # initial synchronization of the network parameters from the coordinator
@@ -248,10 +251,10 @@ def agent(agent_id, all_cooked_time, all_cooked_bw, net_params_queue,
         last_bit_rate = DEFAULT_QUALITY
         bit_rate = DEFAULT_QUALITY
 
-        action_vec = np.zeros(A_DIM)
+        action_vec = np.zeros(dimension)
         action_vec[bit_rate] = 1
-
-        s_batch = [np.zeros((S_INFO, S_LEN))]
+        # state, action and reward batches
+        s_batch = [np.zeros((S_INFO, S_LEN))]  # 3x8 vector filled with zeros
         a_batch = [action_vec]
         r_batch = []
         entropy_record = []
@@ -263,23 +266,24 @@ def agent(agent_id, all_cooked_time, all_cooked_bw, net_params_queue,
         #rebuf_max = 0
         time_stamp = 0
 
-        BACKGROUND_TRAFFIC = [0,5,10,15,20,25,30,35,30,25,20,15,10,5,0]
+        BACKGROUND_TRAFFIC = [0,5,10,15,20,25,30,35,30,25,20,15,10,5,0]  # unused
         
         while True:  # experience video streaming forever
-            index = video_count % len(BACKGROUND_TRAFFIC)
-            background = BACKGROUND_TRAFFIC[index] * 1000000.0
+            index = video_count % len(BACKGROUND_TRAFFIC)  # unused
+            background = BACKGROUND_TRAFFIC[index] * 1000000.0  # unused
             
             # the action is from the last decision
             # this is to make the framework similar to the real
             #delay, sleep_time, buffer_size, rebuf, \
             #video_chunk_size, mean_throughput_trace, \
             end_of_video, mean_loss_rate, mean_free_ca, mean_lr, mean_ca = \
-                net_env.get_video_chunk(bit_rate, video_count, background, btf, lc)
+                net_env.get_video_chunk(bit_rate, video_count,
+                                        background, btf, lc)
             
             # time_stamp += delay  # in ms
             # time_stamp += sleep_time  # in ms
 
-            video_bit_rate_list.append(VIDEO_BIT_RATE[bit_rate])
+            video_bit_rate_list.append(video_bit_rates[bit_rate])
             mean_loss_rate_list.append(mean_loss_rate) # MKS
             mean_lr_list.append(mean_lr)
             #mean_throughput_trace_list.append(mean_throughput_trace) # MKS
@@ -287,43 +291,45 @@ def agent(agent_id, all_cooked_time, all_cooked_bw, net_params_queue,
             # if rebuf_max < (REBUF_PENALTY * rebuf):
             #     rebuf_max = (rebuf*REBUF_PENALTY)
             #     print (rebuf_max * REBUF_PENALTY)
-
-            # #******************** reward function for 5G-MEDIA *****************
-            reward = VIDEO_BIT_RATE[bit_rate] / M_IN_K \
-                - CNO_PARA_LOSS_RATE * mean_loss_rate \
+            #########################################################################################
+            
+            # # ******************** reward function for 5G-MEDIA *******************
+            reward = video_bit_rates[bit_rate] / M_IN_K \
+                - alpha * mean_loss_rate \
                 - SMOOTH_PENALTY * np.abs(CNO_REWARD[bit_rate] -
                                           CNO_REWARD[last_bit_rate])
 
             # -- linear reward --
             # #******************** reward function for 5G-MEDIA *****************
             # reward = VIDEO_BIT_RATE[bit_rate] / M_IN_K \
-            #     - CNO_PARA_LOSS_RATE * mean_loss_rate \
+            #     - alpha * mean_loss_rate \
             #     # - SMOOTH_PENALTY * np.abs(VIDEO_BIT_RATE[bit_rate] -
             #     #                           VIDEO_BIT_RATE[last_bit_rate]) / M_IN_K
             # #*******************************************************************
+
             # print("reward[{0}] br[{1}] lr[{2}] smooth[{3}]"
             #       .format(reward,
             #               VIDEO_BIT_RATE[bit_rate] / M_IN_K,
-            #               CNO_PARA_LOSS_RATE * mean_loss_rate,
+            #               alpha * mean_loss_rate,
             #               SMOOTH_PENALTY * np.abs(VIDEO_BIT_RATE[bit_rate] -
             #                                       VIDEO_BIT_RATE[last_bit_rate]) / M_IN_K))
 
-            
             # #******************** reward function for 5G-MEDIA *****************
             # reward = VIDEO_BIT_RATE[bit_rate] / M_IN_K \
-            #     - CNO_PARA_LOSS_RATE * mean_loss_rate \
+            #     - alpha * mean_loss_rate \
             #     - CNO_PARA_FREE_CA * mean_free_ca  \
             #     - SMOOTH_PENALTY * np.abs(VIDEO_BIT_RATE[bit_rate] -
             #                               VIDEO_BIT_RATE[last_bit_rate]) / M_IN_K
             # #*******************************************************************
+
             # print("reward[{0}] br[{1}] lr[{2}] smooth[{3}] free_ca[{4}]"
             #       .format(reward,
             #               VIDEO_BIT_RATE[bit_rate] / M_IN_K,
-            #               CNO_PARA_LOSS_RATE * mean_loss_rate,
+            #               alpha * mean_loss_rate,
             #               SMOOTH_PENALTY * np.abs(VIDEO_BIT_RATE[bit_rate] -
             #                                       VIDEO_BIT_RATE[last_bit_rate]) / M_IN_K,
             #               CNO_PARA_FREE_CA * mean_free_ca))
-            
+
             # reward is video quality - rebuffer penalty - smoothness
             #reward = VIDEO_BIT_RATE[bit_rate] / M_IN_K \
             #         - REBUF_PENALTY * rebuf \
@@ -342,20 +348,21 @@ def agent(agent_id, all_cooked_time, all_cooked_bw, net_params_queue,
             # reward = HD_REWARD[bit_rate] \
             #          - REBUF_PENALTY * rebuf \
             #          - SMOOTH_PENALTY * np.abs(HD_REWARD[bit_rate] - HD_REWARD[last_bit_rate])
+            #########################################################################################
             r_batch.append(reward)
 
             last_bit_rate = bit_rate
 
             # retrieve previous state
             if len(s_batch) == 0:
-                state = [np.zeros((S_INFO, S_LEN))]                                
+                state = [np.zeros((S_INFO, S_LEN))]
             else:
                 state = np.array(s_batch[-1], copy=True)
 
             # dequeue history record
             # shift the element to the left, move the first element to the end
             # this end value will be updated with the new one, make sure we always
-            # keep the infirmation of the last 8 chunks.
+            # keep the information of the last 8 chunks.
             state = np.roll(state, -1, axis=1)
             
             # this should be S_INFO number of terms
@@ -374,15 +381,15 @@ def agent(agent_id, all_cooked_time, all_cooked_bw, net_params_queue,
             
             #***************************** states for CNO 5G-MEDIA *****************
             # last chunk bit rate (number)
-            state[0, -1] = VIDEO_BIT_RATE[bit_rate] / float(np.max(VIDEO_BIT_RATE))  # last quality
+            state[0, -1] = video_bit_rates[bit_rate] / float(np.max(video_bit_rates))  # last quality
             # past chunk throughput (array) # video_chunk_size is measured in byte
             #state[1, -1] = float(video_chunk_size) / float(delay) / M_IN_K  # kilo byte / ms
             #state[1, -1] = float(mean_throughput_trace) / 1000000 # Mega Bytes/s
             state[1, -1] = float(mean_free_ca)  #fraction
             # loss rate (array)
             state[2, -1] = float(mean_loss_rate)  #fraction
-
-            ########
+            
+            #***********************************************************************
             # print("states: bit_rate [{0}] capacity [{1}] loss_rate [{2}]"
             #       .format(state[0, -1], state[1, -1], state[2, -1]))
             #***********************************************************************
@@ -403,7 +410,7 @@ def agent(agent_id, all_cooked_time, all_cooked_bw, net_params_queue,
 
             # log time_stamp, bit_rate, buffer_size, reward
             log_file.write(str(time_stamp) + '\t' +
-                           str(VIDEO_BIT_RATE[bit_rate]) + '\t' +
+                           str(video_bit_rates[bit_rate]) + '\t' +
                            # str(buffer_size) + '\t' +
                            # str(rebuf) + '\t' +
                            # str(video_chunk_size) + '\t' +
@@ -454,7 +461,7 @@ def agent(agent_id, all_cooked_time, all_cooked_bw, net_params_queue,
                 last_bit_rate = DEFAULT_QUALITY
                 bit_rate = DEFAULT_QUALITY  # use the default action here
 
-                action_vec = np.zeros(A_DIM)
+                action_vec = np.zeros(dimension)
                 action_vec[bit_rate] = 1
 
                 s_batch.append(np.zeros((S_INFO, S_LEN)))
@@ -463,62 +470,119 @@ def agent(agent_id, all_cooked_time, all_cooked_bw, net_params_queue,
             else:
                 s_batch.append(state)
 
-                action_vec = np.zeros(A_DIM)
+                action_vec = np.zeros(dimension)
                 action_vec[bit_rate] = 1
                 a_batch.append(action_vec)
 
+def generate_bit_rates(dimension, lowest_br, highest_br):
+    br_range = highest_br - lowest_br
+    delta = br_range / float(dimension-1)
+    bit_rate_list = []
+    for i in range(dimension):
+        bit_rate_list.append(math.floor(lowest_br))
+        lowest_br += delta
+    return bit_rate_list
+
+def generate_bit_rates(dimension, lowest_br, highest_br, delta):
+    increase = delta
+    bit_rate_list = []
+    for i in range(dimension):
+        bit_rate_list.append(math.floor(lowest_br))
+        lowest_br += delta
+    return bit_rate_list
 
 def main():
+
     # Parameter configuration
-    parser = argparse.ArgumentParser(description='Parameters Setting for UC2 of the 5G-MEDIA project.')
-    parser.add_argument("-a",
-                        help="weight factor of the loss rate in the reward function, default=500",
-                        type=int)
-    parser.add_argument("-bgt",
-                        help="background traffic",
-                        type=int)
-    parser.add_argument("-alr",
+    parser = argparse.ArgumentParser(description='Parameters Setting for second use-case (UC2) of the 5G-MEDIA project.',
+                                     formatter_class=argparse.RawDescriptionHelpFormatter,
+                                     prog='multi_agent_cno_mks',
+                                     epilog="If you have any questions please contact "
+                                     "Morteza Kheirkhah <m.kheirkhah@ucl.ac.uk>")
+    parser.add_argument('--a',
+                        help="Alpha is a weight factor of the loss rate parameter "
+                        "in the reward function, default=500",
+                        type=int, default=500, dest='ALPHA')
+    parser.add_argument("--bgt",
+                        help="background traffic model is used in the %(prog)s program, default=0",
+                        type=int, default=0, dest="bgt")
+    parser.add_argument("--alr",
                         help="actor learning rate, default=0.0001",
-                        type=float)
-    parser.add_argument("-clr",
+                        type=float, default=0.0001)
+    parser.add_argument("--clr",
                         help="critic learning rate, default=0.001",
-                        type=float)
-    parser.add_argument("-lc",
+                        type=float, default=0.001)
+    parser.add_argument("--lc",
                         help="link capacity, default=20000000 (20Mbps)",
-                        type=int)
-    parser.add_argument("-nn",
-                        help="name for the trained neural network model, default='NN_MODEL'",
-                        type=str)
-    parser.add_argument("-pa",
-                        help="Number of parallel agents, default=1",
-                        type=int)
+                        type=int, default=20000000)
+    parser.add_argument("--nn",
+                        help="name for a (trained) neural network model with .ckpt extension. "
+                        "These files are stored in the './results' folder, default=NN_MODEL",
+                        type=str, default='NN_MODEL')
+    parser.add_argument("--pa",
+                        help="Number of parallel agents. "
+                        "This can be set according to the number of CPUs available on your machine. "
+                        "This information is printed on your terminal when you run %(prog)s.py. "
+                        "Default=1",
+                        type=int, default=1)
+    parser.add_argument("--dim",
+                        help="Dimensions which distates the total number of desired bitrates, default=10",
+                        type=int, default=10)
+    parser.add_argument("--br_low",
+                        help="Lowest bitrate that is supported, default=5000000 (5Mbps)",
+                        type=int, default=5000000)
+    parser.add_argument("--br_inc",
+                        help="Delta between bitrates, default=2000000 (2Mbps)",
+                        type=int, default=2000000)
+    parser.add_argument('-v', '--version', action='version', version='%(prog)s 1.0')
+    
+    # parser.print_help()
     args = parser.parse_args()
     
-    alpha = args.a if args.a else 500
-    bg_traffic_pattern = args.bgt if args.bgt else 0  # model_1
-    actor_learning_rate = args.alr if args.alr else ACTOR_LR_RATE
-    critic_learning_rate = args.clr if args.clr else CRITIC_LR_RATE
-    link_capacity = args.lc if args.lc else 20000000  # 20Mbps
-    name_nn_model = args.nn if args.nn else "NN_MODEL"
-    parallel_agents = args.pa if args.pa else 1
+    br_manual = False
+    alpha = args.ALPHA #if args.a else 500
+    bg_traffic_pattern = args.bgt #if args.bgt else 0
+    actor_learning_rate = args.alr #if args.alr else 0.0001
+    critic_learning_rate = args.clr #if args.clr else 0.001
+    link_capacity = args.lc #if args.lc else 20000000  # 20Mbps
+    name_nn_model = args.nn #if args.nn else "NN_MODEL"
+    parallel_agents = args.pa #if args.pa else 1
+    dimension = args.dim #if args.dim else 10
+    if args.br_low:
+        br_low = args.br_low
+        br_manual = True
+    if args.br_inc:
+        br_inc = args.br_inc
+        br_manual = True
+        
+    print ("\n***************************************"
+           "\nAlpha\t\t\t[{0}]"
+           "\nBackground Traffic\t[{1}]"
+           "\nActor Learning Rate\t[{2}]"
+           "\nCritic Learning Rate\t[{3}]"
+           "\nLink Capacity\t\t[{4}]"
+           "\nModel Name\t\t[{5}]"
+           "\nParallel Agents\t\t[{6}]"
+           "\nAvaialble CPUs to use\t[{7}]"
+           "\nDimension\t\t[{8}]"
+           "\nLowest bitrate\t\t[{9}]"
+           "\nDelat between bitrates\t[{10}]"
+           "\n***************************************\n"
+           .format(alpha, bg_traffic_pattern, actor_learning_rate, critic_learning_rate,
+                   link_capacity,name_nn_model, parallel_agents, mp.cpu_count(),
+                   dimension, br_low,br_inc))
 
-    print ("***************************************\n"
-           "***************************************"
-           "\nalpha[{0}] \nbg[{1}] \na_lr[{2}]"
-           "\nc_lr [{3}]] \nlc[{4}] \nname[{5}]"
-           "\nparallel_agents[{6}]\n"
-           "***************************************\n"
-           "***************************************".format(alpha,
-                                                            bg_traffic_pattern,
-                                                            actor_learning_rate,
-                                                            critic_learning_rate,
-                                                            link_capacity,
-                                                            name_nn_model,
-                                                            parallel_agents))
-    
+    # video_bit_rates = generate_bit_rates(dimension, 5000000, link_capacity)
+    if (br_manual):
+        video_bit_rates = generate_bit_rates(dimension, br_low, link_capacity, br_inc)
+    else:
+        video_bit_rates = [5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 15000, 20000]
+        
+    print (video_bit_rates)
+
     np.random.seed(RANDOM_SEED)
-    assert len(VIDEO_BIT_RATE) == A_DIM
-    
+    assert len(video_bit_rates) == dimension
+
     # create result directory (if not exists)
     if not os.path.exists(SUMMARY_DIR):
         os.makedirs(SUMMARY_DIR)
@@ -539,13 +603,17 @@ def main():
                                    actor_learning_rate,
                                    critic_learning_rate,
                                    link_capacity,
-                                   name_nn_model, parallel_agents))
+                                   name_nn_model,
+                                   parallel_agents,
+                                   dimension,
+                                   video_bit_rates))
     
     coordinator.start()
-    
+
     all_cooked_time, all_cooked_bw, _ = load_trace.load_trace(TRAIN_TRACES)
-    agents = []
-    
+    agents = [] # list of processes
+
+    # create multiple processes/agents, and passing args to each
     for i in range(parallel_agents):
         agents.append(mp.Process(target=agent,
                                  args=(i, all_cooked_time, all_cooked_bw,
@@ -556,13 +624,17 @@ def main():
                                        actor_learning_rate,
                                        critic_learning_rate,
                                        link_capacity,
-                                       name_nn_model)))
+                                       name_nn_model,
+                                       dimension,
+                                       video_bit_rates)))
         
+    # start processes/agents in parallel
     for i in range(parallel_agents):
         agents[i].start()
-        
+
     # wait unit training is done
     coordinator.join()
 
+# confirm the code is under main function
 if __name__ == '__main__':
     main()
