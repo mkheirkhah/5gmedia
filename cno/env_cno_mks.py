@@ -22,7 +22,7 @@ FRAME_INTERVAL = 1 #50  # frame
 #VIDEO_BIT_RATE_AVG = [3129, 5216, 8349, 12505, 15630, 20841, 26055, 31294, 41727, 52156]
 
 #VIDEO_BIT_RATE     = [5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 15000, 20000]
-VIDEO_BIT_RATE_AVG  = [5216, 6500, 7400, 8349, 9400, 10440, 11420, 12630, 15630, 20841]
+#VIDEO_BIT_RATE_AVG  = [5216, 6500, 7400, 8349, 9400, 10440, 11420, 12630, 15630, 20841] # dry-run
 
 #VIDEO_BIT_RATE     = [4000, 8000, 12000, 20000, 40000, 45000]  #Kbps
 #VIDEO_BIT_RATE_AVG = [3855, 7551, 11244, 18740, 37480, 42000]  #Kbps
@@ -79,8 +79,8 @@ class Environment:
     #     return video_chunk_size, \
     #         video_chunk_br
 
-    def get_video(self, quality):
-        video = VIDEO_BIT_RATE_AVG[quality] * 1000  #bps
+    def get_video(self, quality, video_bit_rates):
+        video = video_bit_rates[quality] * 1000  #bps
         video = np.random.normal(video, video / 20.0)
         return video
 
@@ -92,11 +92,23 @@ class Environment:
         background = np.random.normal(background, background / 10.0)
         return background
     
-    def get_background(self, rand1, rand2):
-        index = self.video_chunk_counter % len(BACKGROUND_TRAFFIC_5_1)
-        background = BACKGROUND_TRAFFIC_5_1[index] * MBPS #bps
-        background = np.random.normal(background, background / 10.0)
-        return background
+    def get_background(self, rand1, rand2, bg_traffic_pattern, bg_traffic_dist):
+        if (bg_traffic_dist == 'normal'):
+            index = self.video_chunk_counter % len(bg_traffic_pattern)
+            background = bg_traffic_pattern[index] * MBPS #bps
+            background = np.random.normal(background, background / 10.0)
+            return background
+        elif (bg_traffic_dist == 'uniform'):
+            index = self.video_chunk_counter % len(bg_traffic_pattern)
+            background = bg_traffic_pattern[index] * MBPS #bps
+            delta = background/10.0
+            background = np.random.uniform(background-delta, background+delta)
+            return background
+        
+        # index = self.video_chunk_counter % len(BACKGROUND_TRAFFIC_5_1)
+        # background = BACKGROUND_TRAFFIC_5_1[index] * MBPS #bps
+        # background = np.random.normal(background, background / 10.0)
+        # return background
 
         # background = 0.0
         # if (TRAFFIC_MODEL) == "UNIFORM":
@@ -110,9 +122,9 @@ class Environment:
         #     background = np.random.normal(bitrate, bitrate / 10.0)
         # return background
 
-    def get_video_chunk(self, quality, video_count, background, btf, lc):
+    def get_video_chunk(self, quality, video_count, bg_traffic_pattern, bg_traffic_dist ,lc, video_bit_rates):
         # print("\n********** get_video_chunk **********")
-        # print(btf, lc)
+        # print(bg_traffic_pattern, lc)
         self.video_chunk_counter += 1  # to keep track of chunks/frames globally
         #video_chunk_size, video_chunk_br = self.get_video_size(quality)
         
@@ -121,9 +133,9 @@ class Environment:
         loss_rate_frac_list = []
         ava_ca_frac_list = []
         frame_counter = 1
-
+q
         rand1 = np.random.randint(1, 15)
-        rand2 = np.random.randint(1, len(VIDEO_BIT_RATE_AVG))
+        rand2 = np.random.randint(1, len(video_bit_rates))
 
         capacity = lc
         #background = 0.0
@@ -131,7 +143,7 @@ class Environment:
         video = 0.0
 
         while True:  # download video frames            
-            background = self.get_background(rand1, rand2)  #bps
+            background = self.get_background(rand1, rand2, bg_traffic_pattern, bg_traffic_dist)  #bps
             #background = self.get_background_0(video_count)  #bps
             
             # if (video_count < 5000):
@@ -139,7 +151,7 @@ class Environment:
             # else:
             #     background = 30 * MBPS
 
-            video = self.get_video(quality)
+            video = self.get_video(quality, video_bit_rates)
 
             ava_ca = capacity - video - background  #bps
             ava_ca = 0.0 if ava_ca < 0 else ava_ca
