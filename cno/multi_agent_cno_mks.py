@@ -23,7 +23,7 @@ S_INFO = 3  # states
 S_LEN = 8   # past history of states
 TRAIN_SEQ_LEN = 100  # take as a train batch
 MODEL_SAVE_INTERVAL = 100
-CNO_REWARD = [1, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8] # dry-run
+
 
 M_IN_K = 1000.0
 BITS_IN_MEGA = 1000000.0
@@ -198,7 +198,7 @@ def central_agent(net_params_queues, exp_queues,
 
 def agent(agent_id, all_cooked_time, all_cooked_bw, net_params_queue, exp_queue,
           alpha, bg_traffic_pattern, bg_traffic_dist, alr, clr, lc, name_nn_model,
-          dimension, video_bit_rates):
+          dimension, video_bit_rates, video_bitrate_weights):
 
     # agent id would be used as a seed to randomize env between agents
     net_env = env_cno_mks.Environment(all_cooked_time=all_cooked_time,
@@ -233,10 +233,10 @@ def agent(agent_id, all_cooked_time, all_cooked_bw, net_params_queue, exp_queue,
         r_batch = []
         entropy_record = []
         video_count = 1 
-        mean_loss_rate_list = [] 
+        mean_loss_rate_list = []
         mean_lr_list = []
-        video_bit_rate_list = [] 
-        #mean_throughput_trace_list = []  
+        video_bit_rate_list = []
+        #mean_throughput_trace_list = []
         # time_stamp = 0
 
         # BACKGROUND_TRAFFIC = [0,5,10,15,20,25,30,35,30,25,20,15,10,5,0]  # unused
@@ -259,7 +259,8 @@ def agent(agent_id, all_cooked_time, all_cooked_bw, net_params_queue, exp_queue,
             # REWARD FUCNTION
             reward = video_bit_rates[bit_rate] / M_IN_K \
                 - alpha * mean_loss_rate \
-                - SMOOTH_PENALTY * np.abs(CNO_REWARD[bit_rate] - CNO_REWARD[last_bit_rate])
+                - SMOOTH_PENALTY * np.abs(video_bitrate_weights[bit_rate]
+                                          - video_bitrate_weights[last_bit_rate])
             
             r_batch.append(reward)
 
@@ -380,17 +381,25 @@ def generate_bit_rates_auto(dimension, lowest_br, highest_br):
     br_range = highest_br - lowest_br
     delta = br_range / float(dimension-1)
     bit_rate_list = []
+    current_weight = 1.0
+    bit_rate_weight_list = []
     for i in range(dimension):
         bit_rate_list.append(math.floor(lowest_br/M_IN_K)) #kbps
         lowest_br += delta
-    return bit_rate_list
+        bit_rate_weight_list.append(current_weight)
+        current_weight= round(current_weight + 0.2, 2)
+    return bit_rate_list, bit_rate_weight_list
 
 def generate_bit_rates_manually(dimension, lowest_br, highest_br, delta):
+    current_weight = 1.0
+    bit_rate_weight_list = []
     bit_rate_list = []
     for i in range(dimension):
         bit_rate_list.append(math.floor(lowest_br/M_IN_K)) #kbps
         lowest_br += delta
-    return bit_rate_list
+        bit_rate_weight_list.append(current_weight)
+        current_weight= round(current_weight + 0.2, 2)
+    return bit_rate_list, bit_rate_weight_list
 
 def main():
 
@@ -430,9 +439,14 @@ def main():
                         type=int, default=5)
     parser.add_argument("--br_inc",
                         help="Differences in value between bitrates, default=2 (Mbps)",
-                        type=int)
+                        type=int, default=2)
+    parser.add_argument("--br_manual",
+                        help="Generate bitrates manually according to 3 parameters: "
+                        "--lc, --br_low, and --dim",
+                        type=bool, default=False)
     parser.add_argument("--br_auto",
-                        help="Generate bitrates automatically according to link_capacity, br_low, and dimention parameters",
+                        help="Generate bitrates automatically according to 4 parameters: "
+                        "--lc, --br_low, --br_inc, and --dim",
                         type=bool, default=False)
     parser.add_argument("--bg_auto",
                         help="Generate background traffic automatically, with default shape of sawtooth. "
@@ -456,11 +470,22 @@ def main():
     parser.add_argument("--seed",
                         help="A seed to allow the reprodution of a traning session",
                         type=int, default=40)
+    parser.add_argument("--br_weight",
+                        help="Reward container holds similar number of elements as the bitrate container. "
+                        "It imposes penalty if the algortihm largely change bitrates.",
+                        type=int, default=[1, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8])
+    parser.add_argument('--br',
+                        help="List of bitrates"
+                        "default=[5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 15000, 20000] (Kbps)",
+                        default=[5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 15000, 20000],
+                        type=int, nargs='+')
+
+    
 
     parser.add_argument('-v', '--version', action='version', version='%(prog)s 1.0')
     args = parser.parse_args()
     
-    br_manual = False
+    br_manual = args.br_manual
     br_auto = args.br_auto
     alpha = args.ALPHA 
     actor_learning_rate = args.alr
@@ -468,7 +493,7 @@ def main():
     link_capacity = args.lc * BITS_IN_MEGA
     name_nn_model = args.nn 
     parallel_agents = args.pa
-    dimension = args.dim #if args.dim else 10
+    dimension = args.dim # if args.dim else 10
     clean = args.clean
     bg_traffic_pattern = args.btp
     bg_traffic_dist = args.btd 
@@ -476,24 +501,19 @@ def main():
     bg_auto = args.bg_auto
     bg_shape = args.bg_shape
     seed = args.seed
-    
-    if clean > 0:
-        os.system("rm ./results/*")
-        print ("The 'results' folder has been cleared.")
-        
-    if args.br_inc:
-        br_inc = args.br_inc * BITS_IN_MEGA
-        br_manual = True
-    else:
-        br_inc = 2 * BITS_IN_MEGA # (2Mbps)
+    br_inc = args.br_inc * BITS_IN_MEGA
 
+    
     # video_bit_rates = generate_bit_rates(dimension, 5000000, link_capacity)
     if (br_manual):
-        video_bit_rates = generate_bit_rates_manually(dimension, br_low, link_capacity, br_inc)
+        video_bit_rates, video_bitrate_weights = generate_bit_rates_manually(dimension, br_low, link_capacity, br_inc)
     elif (br_auto):
-        video_bit_rates = generate_bit_rates_auto(dimension, br_low, link_capacity)
+        video_bit_rates, video_bitrate_weights = generate_bit_rates_auto(dimension, br_low, link_capacity)
     else:
-        video_bit_rates = [5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 15000, 20000]
+        video_bit_rates = args.br
+        video_bitrate_weights = args.br_weight
+        # video_bit_rates = [5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 15000, 20000]
+        # video_bit_rates = video_bit_rates[:dimension]
 
     if (bg_auto):
         bg_traffic_pattern = generate_bg_traffic(link_capacity, bg_shape)
@@ -509,18 +529,19 @@ def main():
           "\nLowest bitrate\t\t[{9}] (bps)"
           "\nDelat between bitrates\t[{10}] (bps)"
           "\nClean 'result' folder\t[{11}]"
-          "\nBack. Traffic Model\t{1} (Mbps)"
-          "\nBack. Traffic Dist\t[{12}]"
+          "\nBG Traffic Model\t{1} (Mbps)"
+          "\nBG Traffic Dist\t\t[{12}]"
           "\nAuto bitrate selection\t[{13}]"
-          "\nAuto background traffic\t[{14}]"
-          "\nBackground shape\t[{15}]"
+          "\nAuto BG traffic\t\t[{14}]"
+          "\nBG shape\t\t[{15}]"
           "\nBitrates\t\t{16} (Kbps)"
+          "\nVideo_Bitrates_weight\t{18}"
           "\nSeed\t\t\t[{17}]"
           "\n******************************************************************************"
           .format(alpha, bg_traffic_pattern, actor_learning_rate,critic_learning_rate,
                   link_capacity,name_nn_model,parallel_agents, mp.cpu_count(), dimension,
                   br_low,br_inc, clean, bg_traffic_dist, br_auto, bg_auto,
-                  bg_shape, video_bit_rates, seed))
+                  bg_shape, video_bit_rates, seed, video_bitrate_weights))
 
     np.random.seed(seed)
     assert len(video_bit_rates) == dimension
@@ -568,8 +589,8 @@ def main():
                                        link_capacity,
                                        name_nn_model,
                                        dimension,
-                                       video_bit_rates)))
-        
+                                       video_bit_rates, video_bitrate_weights)))
+
     # start processes/agents in parallel
     for i in range(parallel_agents):
         agents[i].start()
