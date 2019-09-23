@@ -26,9 +26,10 @@ MODEL_SAVE_INTERVAL = 100
 CNO_REWARD = [1, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8] # dry-run
 
 M_IN_K = 1000.0
+BITS_IN_MEGA = 1000000.0
 SMOOTH_PENALTY = 1
 DEFAULT_QUALITY = 1  # default video quality without agent
-RANDOM_SEED = 42
+
 RAND_RANGE = 1000
 SUMMARY_DIR = './results'
 LOG_FILE = './results/cno_log_alt'
@@ -361,19 +362,33 @@ def agent(agent_id, all_cooked_time, all_cooked_bw, net_params_queue, exp_queue,
                 action_vec[bit_rate] = 1
                 a_batch.append(action_vec)
 
+def generate_bg_traffic(lc, shape="random"):
+    capacity = lc/BITS_IN_MEGA #Mbps e.g. 50 Mbps
+    mid_range = int(capacity/2.0)
+    background_list = []
+    if (shape == "sawtooth"):
+        for i in range(0, mid_range, 2):
+            background_list.append(i)
+        for i in range (mid_range, 0, -2):
+            background_list.append(i)
+        return background_list
+    if (shape == "random"):
+        background_list = np.random.randint(0, int(capacity), dtype=int, size=20)
+        return background_list
+ 
 def generate_bit_rates_auto(dimension, lowest_br, highest_br):
     br_range = highest_br - lowest_br
     delta = br_range / float(dimension-1)
     bit_rate_list = []
     for i in range(dimension):
-        bit_rate_list.append(math.floor(lowest_br))
+        bit_rate_list.append(math.floor(lowest_br/M_IN_K)) #kbps
         lowest_br += delta
     return bit_rate_list
 
 def generate_bit_rates_manually(dimension, lowest_br, highest_br, delta):
     bit_rate_list = []
     for i in range(dimension):
-        bit_rate_list.append(math.floor(lowest_br))
+        bit_rate_list.append(math.floor(lowest_br/M_IN_K)) #kbps
         lowest_br += delta
     return bit_rate_list
 
@@ -386,106 +401,128 @@ def main():
                                      epilog="If you have any questions please contact "
                                      "Morteza Kheirkhah <m.kheirkhah@ucl.ac.uk>")
     parser.add_argument('--alpha',
-                        help="Alpha is a weight factor of the loss rate parameter used in "
+                        help="Alpha is a weight factor for the loss rate parameter used in "
                         " the reward function, default=500.",
                         type=int, default=500, dest='ALPHA')
     parser.add_argument("--alr",
-                        help="actor learning rate, default=0.0001",
+                        help="Actor learning rate, default=0.0001",
                         type=float, default=0.0001)
     parser.add_argument("--clr",
-                        help="critic learning rate, default=0.001",
+                        help="Critic learning rate, default=0.001",
                         type=float, default=0.001)
     parser.add_argument("--lc",
-                        help="link capacity, default=20000000 (20Mbps)",
-                        type=int, default=20000000)
+                        help="Link capacity, default=20 (Mbps)",
+                        type=int, default=20)
     parser.add_argument("--nn",
-                        help="name for a (trained) neural network model with .ckpt extension. "
+                        help="Name for a (trained) neural network model with .ckpt extension. "
                         "These files are stored in the './results' folder, default=NN_MODEL",
                         type=str, default='NN_MODEL')
     parser.add_argument("--pa",
                         help="Number of parallel agents. "
                         "This can be set according to the number of CPUs available on your machine. "
-                        "This information is printed on your terminal when you run %(prog)s.py. "
-                        "Default=1",
-                        type=int, default=1, choices=range(1, mp.cpu_count()))
+                        "default=1",
+                        type=int, default=1, choices=range(1, mp.cpu_count()+1))
     parser.add_argument("--dim",
-                        help="Dimensions which distates the total number of desired bitrates, default=10",
+                        help="Dimension parameter dictates the total number of bitrates to support, default=10",
                         type=int, default=10)
     parser.add_argument("--br_low",
-                        help="Lowest bitrate that is supported, default=5000000 (5Mbps)",
-                        type=int)
+                        help="Lowest bitrate that is supported, default=5 (Mbps)",
+                        type=int, default=5)
     parser.add_argument("--br_inc",
-                        help="Delta between bitrates, default=2000000 (2Mbps)",
+                        help="Differences in value between bitrates, default=2 (Mbps)",
                         type=int)
+    parser.add_argument("--br_auto",
+                        help="Generate bitrates automatically according to link_capacity, br_low, and dimention parameters",
+                        type=bool, default=False)
+    parser.add_argument("--bg_auto",
+                        help="Generate background traffic automatically, with default shape of sawtooth. "
+                        "To change the shape see --bg_shape",
+                        type=bool, default=False)
+    parser.add_argument("--bg_shape",
+                        help="Shape/pattern of background traffic, e.g., it could be sawtooth-like or with no shape (random),"
+                        " default=sawtooth",
+                        type=str, default='sawtooth', choices=['sawtooth', 'random'])
     parser.add_argument("--clean",
                         help="Remove all files in 'results' folder, default=1 (True)",
                         default=1, type=int)
-    parser.add_argument('--btp', nargs='+',
+    parser.add_argument('--btp',
                         help="Background traffic pattern, "
                         "default=[0, 2, 4, 6, 8, 10, 12, 14, 15, 14, 12, 10, 8, 6, 4, 2, 0] (Mbps)",
-                        type=int, required=True)
+                        default=[0, 2, 4, 6, 8, 10, 12, 14, 15, 14, 12, 10, 8, 6, 4, 2, 0],
+                        type=int, nargs='+')
     parser.add_argument("--btd",
-                        help="background traffic distribution e.g. Normal or Uniform, default=normal",
+                        help="Background traffic distribution e.g. Normal or Uniform, default=normal",
                         type=str, default='normal', dest="btd", choices=['normal', 'uniform'])
+    parser.add_argument("--seed",
+                        help="A seed to allow the reprodution of a traning session",
+                        type=int, default=40)
 
-    parser.add_argument('-v', '--version', action='version', version='%(prog)s 1.0')    
+    parser.add_argument('-v', '--version', action='version', version='%(prog)s 1.0')
     args = parser.parse_args()
     
     br_manual = False
+    br_auto = args.br_auto
     alpha = args.ALPHA 
     actor_learning_rate = args.alr
     critic_learning_rate = args.clr
-    link_capacity = args.lc
+    link_capacity = args.lc * BITS_IN_MEGA
     name_nn_model = args.nn 
     parallel_agents = args.pa
     dimension = args.dim #if args.dim else 10
     clean = args.clean
     bg_traffic_pattern = args.btp
-    bg_traffic_dist = args.btd
+    bg_traffic_dist = args.btd 
+    br_low = args.br_low * BITS_IN_MEGA
+    bg_auto = args.bg_auto
+    bg_shape = args.bg_shape
+    seed = args.seed
     
     if clean > 0:
         os.system("rm ./results/*")
-
-    if args.br_low:
-        br_low = args.br_low
-        br_manual = True
-    else:
-        br_low = 5000000 # (5Mbps)
+        print ("The 'results' folder has been cleared.")
         
     if args.br_inc:
-        br_inc = args.br_inc
+        br_inc = args.br_inc * BITS_IN_MEGA
         br_manual = True
     else:
-        br_inc = 2000000 # (2Mbps)
-        
-    print ("\n***************************************"
-           "\nAlpha\t\t\t[{0}]"
-           "\nActor Learning Rate\t[{2}]"
-           "\nCritic Learning Rate\t[{3}]"
-           "\nLink Capacity\t\t[{4}] (bps)"
-           "\nModel Name\t\t[{5}]"
-           "\nParallel Agents\t\t[{6}]"
-           "\nAvaialble CPUs to use\t[{7}]"
-           "\nDimension\t\t[{8}]"
-           "\nLowest bitrate\t\t[{9}]"
-           "\nDelat between bitrates\t[{10}]"
-           "\nClean\t\t\t[{11}]"
-           "\nBack. Traffic Model\t{1} (Mbps)"
-           "\nBack. Traffic Dist\t[{12}]"
-           "\n***************************************"
-           .format(alpha, bg_traffic_pattern, actor_learning_rate, critic_learning_rate,
-                   link_capacity,name_nn_model, parallel_agents, mp.cpu_count(),
-                   dimension, br_low,br_inc, clean, bg_traffic_dist))
+        br_inc = 2 * BITS_IN_MEGA # (2Mbps)
 
     # video_bit_rates = generate_bit_rates(dimension, 5000000, link_capacity)
     if (br_manual):
         video_bit_rates = generate_bit_rates_manually(dimension, br_low, link_capacity, br_inc)
+    elif (br_auto):
+        video_bit_rates = generate_bit_rates_auto(dimension, br_low, link_capacity)
     else:
         video_bit_rates = [5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 15000, 20000]
-        
-    print ("Bitrates: ", video_bit_rates, "\n")
 
-    np.random.seed(RANDOM_SEED)
+    if (bg_auto):
+        bg_traffic_pattern = generate_bg_traffic(link_capacity, bg_shape)
+        
+    print("\n******************************************************************************"
+          "\nAlpha\t\t\t[{0}]" "\nActor Learning Rate\t[{2}]"
+          "\nCritic Learning Rate\t[{3}]"
+          "\nLink Capacity\t\t[{4}] (bps)"
+          "\nModel Name\t\t[{5}]"
+          "\nParallel Agents\t\t[{6}]"
+          "\nAvaialble CPUs to use\t[{7}]"
+          "\nDimension\t\t[{8}]"
+          "\nLowest bitrate\t\t[{9}] (bps)"
+          "\nDelat between bitrates\t[{10}] (bps)"
+          "\nClean 'result' folder\t[{11}]"
+          "\nBack. Traffic Model\t{1} (Mbps)"
+          "\nBack. Traffic Dist\t[{12}]"
+          "\nAuto bitrate selection\t[{13}]"
+          "\nAuto background traffic\t[{14}]"
+          "\nBackground shape\t[{15}]"
+          "\nBitrates\t\t{16} (Kbps)"
+          "\nSeed\t\t\t[{17}]"
+          "\n******************************************************************************"
+          .format(alpha, bg_traffic_pattern, actor_learning_rate,critic_learning_rate,
+                  link_capacity,name_nn_model,parallel_agents, mp.cpu_count(), dimension,
+                  br_low,br_inc, clean, bg_traffic_dist, br_auto, bg_auto,
+                  bg_shape, video_bit_rates, seed))
+
+    np.random.seed(seed)
     assert len(video_bit_rates) == dimension
 
     # create result directory (if not exists)

@@ -98,7 +98,7 @@ class Environment:
             background = bg_traffic_pattern[index] * MBPS #bps
             background = np.random.normal(background, background / 10.0)
             return background
-        elif (bg_traffic_dist == 'uniform'):
+        if (bg_traffic_dist == 'uniform'):
             index = self.video_chunk_counter % len(bg_traffic_pattern)
             background = bg_traffic_pattern[index] * MBPS #bps
             delta = background/10.0
@@ -124,7 +124,7 @@ class Environment:
 
     def get_video_chunk(self, quality, video_count, bg_traffic_pattern, bg_traffic_dist ,lc, video_bit_rates):
         # print("\n********** get_video_chunk **********")
-        # print(bg_traffic_pattern, lc)
+        # print(bg_traffic_pattern, bg_traffic_dist, video_bit_rates,lc)
         self.video_chunk_counter += 1  # to keep track of chunks/frames globally
         #video_chunk_size, video_chunk_br = self.get_video_size(quality)
         
@@ -133,7 +133,7 @@ class Environment:
         loss_rate_frac_list = []
         ava_ca_frac_list = []
         frame_counter = 1
-q
+        
         rand1 = np.random.randint(1, 15)
         rand2 = np.random.randint(1, len(video_bit_rates))
 
@@ -163,7 +163,8 @@ q
             ########
             # print("bg [{0}] video[{1}] ava_ca [{2}] ava_ca_frac [{3}] loss_rate [{4}] loss_rate_frac [{5}]"
             #       .format(background/MBPS, video/MBPS, ava_ca/MBPS, ava_ca_frac, loss_rate, loss_rate_frac))
-            
+
+            # print (capacity,"\t", video,"\t", background)
             ava_ca_frac_list.append(ava_ca_frac) # bytes/s
             loss_rate_frac_list.append(loss_rate_frac)
             loss_rate_list.append(loss_rate)
