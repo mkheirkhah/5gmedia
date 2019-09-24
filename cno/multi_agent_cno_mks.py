@@ -198,7 +198,7 @@ def central_agent(net_params_queues, exp_queues,
 
 def agent(agent_id, all_cooked_time, all_cooked_bw, net_params_queue, exp_queue,
           alpha, bg_traffic_pattern, bg_traffic_dist, alr, clr, lc, name_nn_model,
-          dimension, video_bit_rates, video_bitrate_weights):
+          dimension, video_bit_rates, video_br_weights, r_func):
 
     # agent id would be used as a seed to randomize env between agents
     net_env = env_cno_mks.Environment(all_cooked_time=all_cooked_time,
@@ -257,10 +257,23 @@ def agent(agent_id, all_cooked_time, all_cooked_bw, net_params_queue, exp_queue,
             #mean_throughput_trace_list.append(mean_throughput_trace) 
                         
             # REWARD FUCNTION
-            reward = video_bit_rates[bit_rate] / M_IN_K \
-                - alpha * mean_loss_rate \
-                - SMOOTH_PENALTY * np.abs(video_bitrate_weights[bit_rate]
-                                          - video_bitrate_weights[last_bit_rate])
+            r_bitrate = video_bit_rates[bit_rate] / M_IN_K
+            r_alpha =  alpha * mean_loss_rate
+            r_smooth = SMOOTH_PENALTY * np.abs(video_br_weights[bit_rate] - video_br_weights[last_bit_rate])
+            reward = 0
+            if (r_func == 'bls'):
+                reward = r_bitrate - r_alpha - r_smooth
+            elif(r_func == 'bl'):
+                reward = r_bitrate - r_alpha
+            elif (r_func == 'b'):
+                reward = r_bitrate
+            else:
+                exit(1)
+                
+            # reward = video_bit_rates[bit_rate] / M_IN_K \
+            #     - alpha * mean_loss_rate \
+            #     - SMOOTH_PENALTY * np.abs(video_br_weights[bit_rate]
+            #                               - video_br_weights[last_bit_rate])
             
             r_batch.append(reward)
 
@@ -457,8 +470,8 @@ def main():
                         " default=sawtooth",
                         type=str, default='sawtooth', choices=['sawtooth', 'random'])
     parser.add_argument("--clean",
-                        help="Remove all files in 'results' folder, default=1 (True)",
-                        default=1, type=int)
+                        help="Remove all files in 'results' folder, default=1 (True), and 0 (False)",
+                        type=int, default=1, choices=[0,1])
     parser.add_argument('--btp',
                         help="Background traffic pattern, "
                         "default=[0, 2, 4, 6, 8, 10, 12, 14, 15, 14, 12, 10, 8, 6, 4, 2, 0] (Mbps)",
@@ -467,21 +480,25 @@ def main():
     parser.add_argument("--btd",
                         help="Background traffic distribution e.g. Normal or Uniform, default=normal",
                         type=str, default='normal', dest="btd", choices=['normal', 'uniform'])
-    parser.add_argument("--seed",
-                        help="A seed to allow the reprodution of a traning session",
-                        type=int, default=40)
     parser.add_argument("--br_weight",
                         help="Reward container holds similar number of elements as the bitrate container. "
                         "It imposes penalty if the algortihm largely change bitrates.",
                         type=int, default=[1, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8])
     parser.add_argument('--br',
-                        help="List of bitrates"
-                        "default=[5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 15000, 20000] (Kbps)",
+                        help="List of bitrates "
+                        "default=[5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 15000, 20000] (Kbps). "
+                        "By changing this, make sure that --lc, --bg_auto are configured",
                         default=[5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 15000, 20000],
                         type=int, nargs='+')
-
-    
-
+    parser.add_argument('--r_func',
+                        help="Reward function variants: "
+                        "{bls} has bitrate, lossrate and smoothness,  "
+                        "{bl} has bitrate and loss_rate, "
+                        "{b} has only bitrate",
+                        default='bls', type=str, choices=['bls', 'bl', 'b'])
+    parser.add_argument("--seed",
+                        help="A seed to allow the reprodution of a traning session",
+                        type=int, default=40)
     parser.add_argument('-v', '--version', action='version', version='%(prog)s 1.0')
     args = parser.parse_args()
     
@@ -502,16 +519,19 @@ def main():
     bg_shape = args.bg_shape
     seed = args.seed
     br_inc = args.br_inc * BITS_IN_MEGA
-
+    r_func = args.r_func
+    
+    if (clean>0):
+        os.system("rm ./results/*")
     
     # video_bit_rates = generate_bit_rates(dimension, 5000000, link_capacity)
     if (br_manual):
-        video_bit_rates, video_bitrate_weights = generate_bit_rates_manually(dimension, br_low, link_capacity, br_inc)
+        video_bit_rates, video_br_weights = generate_bit_rates_manually(dimension, br_low, link_capacity, br_inc)
     elif (br_auto):
-        video_bit_rates, video_bitrate_weights = generate_bit_rates_auto(dimension, br_low, link_capacity)
+        video_bit_rates, video_br_weights = generate_bit_rates_auto(dimension, br_low, link_capacity)
     else:
         video_bit_rates = args.br
-        video_bitrate_weights = args.br_weight
+        video_br_weights = args.br_weight
         # video_bit_rates = [5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 15000, 20000]
         # video_bit_rates = video_bit_rates[:dimension]
 
@@ -536,12 +556,13 @@ def main():
           "\nBG shape\t\t[{15}]"
           "\nBitrates\t\t{16} (Kbps)"
           "\nVideo_Bitrates_weight\t{18}"
+          "\nr-func\t\t\t[{19}]"
           "\nSeed\t\t\t[{17}]"
           "\n******************************************************************************"
           .format(alpha, bg_traffic_pattern, actor_learning_rate,critic_learning_rate,
                   link_capacity,name_nn_model,parallel_agents, mp.cpu_count(), dimension,
                   br_low,br_inc, clean, bg_traffic_dist, br_auto, bg_auto,
-                  bg_shape, video_bit_rates, seed, video_bitrate_weights))
+                  bg_shape, video_bit_rates, seed, video_br_weights, r_func))
 
     np.random.seed(seed)
     assert len(video_bit_rates) == dimension
@@ -589,7 +610,7 @@ def main():
                                        link_capacity,
                                        name_nn_model,
                                        dimension,
-                                       video_bit_rates, video_bitrate_weights)))
+                                       video_bit_rates, video_br_weights, r_func)))
 
     # start processes/agents in parallel
     for i in range(parallel_agents):
