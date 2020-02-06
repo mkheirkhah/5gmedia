@@ -499,6 +499,9 @@ def main():
     parser.add_argument("--seed",
                         help="A seed to allow the reprodution of a traning session",
                         type=int, default=40)
+    parser.add_argument("--trn",
+                        help="Training Data, default=./cooked_traces",
+                        type=str, default='./cooked_traces/')
     parser.add_argument('-v', '--version', action='version', version='%(prog)s 1.0')
     args = parser.parse_args()
     
@@ -520,6 +523,8 @@ def main():
     seed = args.seed
     br_inc = args.br_inc * BITS_IN_MEGA
     r_func = args.r_func
+    trn = args.trn
+
     
     if (clean>0):
         os.system("rm ./results/*")
@@ -558,11 +563,12 @@ def main():
           "\nVideo_Bitrates_weight\t{18}"
           "\nr-func\t\t\t[{19}]"
           "\nSeed\t\t\t[{17}]"
+          "\ntrn\t\t\t[{20}]"
           "\n******************************************************************************"
           .format(alpha, bg_traffic_pattern, actor_learning_rate,critic_learning_rate,
                   link_capacity,name_nn_model,parallel_agents, mp.cpu_count(), dimension,
                   br_low,br_inc, clean, bg_traffic_dist, br_auto, bg_auto,
-                  bg_shape, video_bit_rates, seed, video_br_weights, r_func))
+                  bg_shape, video_bit_rates, seed, video_br_weights, r_func, trn))
 
     np.random.seed(seed)
     assert len(video_bit_rates) == dimension
