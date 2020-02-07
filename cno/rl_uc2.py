@@ -9,6 +9,8 @@ import numpy as np
 import tensorflow as tf
 import a3c_cno_mks
 from uc2_daemon import get_kafka_producer, write_kafka_uc2_exec
+import argparse
+from datetime import datetime
 
 S_INFO = 3  # bit_rate, bytes_sent, loss_rate
 S_LEN = 8  # take how many frames in the past
@@ -23,6 +25,7 @@ M_IN_K = 1000.0
 DEFAULT_QUALITY = 1
 RANDOM_SEED = 42
 RAND_RANGE = 1000
+VCE = {1 : "06:00:cc:74:72:95", 2 : "06:00:cc:74:72:99"}
 
 #rtmp://192.168.83.30/live/qoe
 #NN_MODEL = './trained_models/mks_loss_1000.ckpt'
@@ -218,8 +221,73 @@ def read_kafka(last_bytes_sent, last_bytes_rcvd, last_lr, last_ts, last_ca):
         #print("read_kafka() -> there is no messages in the Kafka to read...")
         return last_bytes_sent, last_bytes_rcvd, last_lr, last_ts, last_ca, 0
 
+def bitrate_checker(vce, bit_rate, br_min, br_max, profile, priority):
+    
+    if (bit_rate < br_min):
+        return br_min
+    elif (bit_rate > br_max):
+        return br_max
+    return bit_rate
+
+def init_cmd_params():
+    parser = argparse.ArgumentParser(description='Parameters setting for use case 2 (UC2) of the 5G-MEDIA project.',
+                                     formatter_class=argparse.RawDescriptionHelpFormatter,
+                                     prog='rl_uc2',
+                                     epilog="If you have any questions please contact "
+                                     "Morteza Kheirkhah <m.kheirkhah@ucl.ac.uk>")
+    parser.add_argument("--vce",      type=int,   default=1,     choices=[1, 2])
+    parser.add_argument("--br_min",   type=int,   default=1,     choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+    parser.add_argument("--br_max",   type=int,   default=9,     choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+    parser.add_argument("--profile",  type=str,   default='sta', choices=['low', 'sta', 'pre'])
+    parser.add_argument("--priority", type=int,   default=0,     choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+    parser.add_argument("--ava_ca",   type=float, default=0.0)
+    parser.add_argument("--capacity", type=float, default=20000000.0)
+    args = parser.parse_args()
+
+    # init parameters
+    vce      = VCE[args.vce]
+    br_min   = args.br_min
+    br_max   = args.br_max
+    profile  = args.profile
+    priority = args.priority
+    ava_ca   = args.ava_ca
+    capacity = args.capacity
+    return vce, br_min, br_max, profile, priority, ava_ca, capacity
+
+def generate_timestamp():
+    # now = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f")
+    now = datetime.now().timestamp()
+    return now
+
+def advertise_current_state(vce, br, br_min, br_max, profile, priority, ava_ca, capacity):
+    ts = generate_timestamp()
+    message = str(list(VCE.keys())[list(VCE.values()).index(vce)]) + \
+        "\t" + str(ts) + "\t" + str(br) + "\t" + str(br_min) + \
+        "\t" + str(br_max) + "\t" + profile + "\t" + \
+        str(ava_ca) + "\t" + str(capacity) + "\n"
+
+    try:
+        with open("uc2_current_state.log", "a") as ff:
+            ff.write(message)
+    except Exception as ex:
+        print(ex)
 
 def main():
+
+    vce, br_min, br_max, profile, priority, ava_ca, capacity = init_cmd_params()
+    print ("\n******************************************************************************"
+           "\nvce [{0}]"
+           "\nbr_min [{1}]"
+           "\nbr_max [{2}]"
+           "\nprofile [{3}]"
+           "\npriority [{4}]"
+           "\nava_ca [{5}]"
+           "\ncapacity [{6}]"
+           "\n******************************************************************************"
+           .format(vce, br_min, br_max, profile, priority, ava_ca, capacity))
+
+    # As session start up we need to inform the arbitator about this session's details
+    advertise_current_state (vce, 0.0, br_min, br_max, profile, priority, ava_ca, capacity)
 
     np.random.seed(RANDOM_SEED)
 
@@ -251,15 +319,20 @@ def main():
         s_batch = [np.zeros((S_INFO, S_LEN))]
 
         producer = get_kafka_producer()
-                
+
         bytes_sent = 0.0
         bytes_rcvd = 0.0
         loss_rate = 0.0
         ts = "T00:00:00.000000Z"
-        ava_ca = 0.0
+        # ava_ca = 0.0
+        # br_min = 0
+        # br_max = 5
+        # profile = "standard"
+        # priority = 1
+        # vce = 0
 
-        bytes_sent, ts, bytes_rcvd, loss_rate,  = get_last_kafka_msg()
-        
+        bytes_sent, ts, bytes_rcvd, loss_rate, = get_last_kafka_msg()
+
         counter = 0
         while True:  # serve video forever
             counter += 1
@@ -273,7 +346,7 @@ def main():
                 else:
                     sleep(INTERVAL)
 
-            print("-> last_bit_rate[{0}]Mbps".format(VIDEO_BIT_RATE[last_bit_rate]/1000.0))
+            print("-> last_bit_rate[{0}]Mbps".format(VIDEO_BIT_RATE[last_bit_rate] / 1000.0))
             # print("new_bytes_sent[{0}] new_lr[{1}] new_ts[{2}] new_ava_ca[{3}]Mbps, last_bit_rate[{4}]"
             #       .format(bytes_sent,
             #               loss_rate,
@@ -305,7 +378,7 @@ def main():
             bit_rate = (
                 action_cumsum >
                 np.random.randint(1, RAND_RANGE) / float(RAND_RANGE)).argmax()
-            
+
             s_batch.append(state)
  
             # write new bit-rate to Kafka to be delivered to vCompression
@@ -313,9 +386,19 @@ def main():
             print("-> new_bit_rate [{0}]Mbps"#" - last_bit_rate [{1}]Mbps"
                   .format(VIDEO_BIT_RATE[bit_rate]/1000.0,))
             #VIDEO_BIT_RATE[last_bit_rate]/1000.0))
+
+            # Now time to check whether the decided bitrate is within our video quality profile
+            new_bit_rate = bitrate_checker(vce, bit_rate, br_min, br_max, profile, priority)
+            
+            if (new_bit_rate != bit_rate):
+                print ("old br [{0}] -> new br [{1}]".format(VIDEO_BIT_RATE[bit_rate], VIDEO_BIT_RATE[new_bit_rate]))
+                bit_rate = new_bit_rate
+
             last_bit_rate = bit_rate
             write_kafka_uc2_exec(producer, VIDEO_BIT_RATE[bit_rate])
 
+            advertise_current_state (vce, bit_rate, br_min, br_max, profile, priority, ava_ca, capacity)
+    
             # sleep for an INTERVAL before begin reading from Kafka again
             sleep(INTERVAL)
 
