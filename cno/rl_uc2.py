@@ -1,9 +1,15 @@
-# Written by Morteza Kheirkhah [m.kheirkhah@ucl.ac.uk]
-# Model-4 (lr-ca)(bg5)(sm0)(v+20)(bg+10)(bt10)(l450)
+#################################################################################
+# Author:      Morteza Kheirkhah
+# Institution: University College London (UCL), UK
+# Email:       m.kheirkhah@ucl.ac.uk
+# Homepage:    http://www.uclmail.net/users/m.kheirkhah/
+#################################################################################
 
+# Model-4 (lr-ca)(bg5)(sm0)(v+20)(bg+10)(bt10)(l450)
 import os
 os.environ['CUDA_VISIBLE_DEVICES'] = ''
-
+import time
+import calendar
 from time import sleep
 import numpy as np
 import tensorflow as tf
@@ -217,16 +223,31 @@ def read_kafka(last_bytes_sent, last_bytes_rcvd, last_lr, last_ts, last_ca):
                               ts_dur))
                 return bs, br, lr, ts, ca_free, 1
 
-        # return last metrics
+        #return last metrics
         #print("read_kafka() -> there is no messages in the Kafka to read...")
         return last_bytes_sent, last_bytes_rcvd, last_lr, last_ts, last_ca, 0
 
-def bitrate_checker(vce, bit_rate, br_min, br_max, profile, priority):
-    
-    if (bit_rate < br_min):
-        return br_min
-    elif (bit_rate > br_max):
-        return br_max
+def read_resources(resource_update):
+    try:
+        with open("uc2_resource_dist.log", "r") as ff:
+            for line in ff:
+                col = line.split()
+                if int(col[0]) == int(resource_update[0]):
+                    if int(col[1]) > (int(resource_update[1])):
+                        resource_update = col
+
+    except Exception as ex:
+        f = open('uc2_read_from_kafka.log', 'w')
+        f.close()
+        print(ex)
+
+    return resource_update
+
+def bitrate_checker(resource_update, vce, bit_rate, br_min, br_max, profile, priority):
+    if (bit_rate < int(resource_update[2])):
+        return int(resource_update[2])
+    elif (bit_rate > int(resource_update[3])):
+        return int(resource_update[3])
     return bit_rate
 
 def init_cmd_params():
@@ -238,14 +259,14 @@ def init_cmd_params():
     parser.add_argument("--vce",      type=int,   default=1,     choices=[1, 2])
     parser.add_argument("--br_min",   type=int,   default=1,     choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
     parser.add_argument("--br_max",   type=int,   default=9,     choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-    parser.add_argument("--profile",  type=str,   default='sta', choices=['low', 'sta', 'pre'])
+    parser.add_argument("--profile",  type=str,   default='standard', choices=['low', 'standard', 'high'])
     parser.add_argument("--priority", type=int,   default=0,     choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
     parser.add_argument("--ava_ca",   type=float, default=0.0)
     parser.add_argument("--capacity", type=float, default=20000000.0)
     args = parser.parse_args()
 
     # init parameters
-    vce      = VCE[args.vce]
+    vce      = args.vce
     br_min   = args.br_min
     br_max   = args.br_max
     profile  = args.profile
@@ -256,12 +277,14 @@ def init_cmd_params():
 
 def generate_timestamp():
     # now = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f")
-    now = datetime.now().timestamp()
+    # now = datetime.now().timestamp()
+    now = calendar.timegm(time.gmtime())
     return now
 
-def advertise_current_state(vce, br, br_min, br_max, profile, priority, ava_ca, capacity):
+def write_current_state(vce, br, br_min, br_max, profile, priority, ava_ca, capacity):
     ts = generate_timestamp()
-    message = str(list(VCE.keys())[list(VCE.values()).index(vce)]) + \
+    #str(list(VCE.keys())[list(VCE.values()).index(vce)]) + \
+    message = str(vce) + \
         "\t" + str(ts) + "\t" + str(br) + "\t" + str(br_min) + \
         "\t" + str(br_max) + "\t" + profile + "\t" + \
         str(ava_ca) + "\t" + str(capacity) + "\n"
@@ -287,7 +310,7 @@ def main():
            .format(vce, br_min, br_max, profile, priority, ava_ca, capacity))
 
     # As session start up we need to inform the arbitator about this session's details
-    advertise_current_state (vce, 0.0, br_min, br_max, profile, priority, ava_ca, capacity)
+    write_current_state (vce, 0, br_min, br_max, profile, priority, ava_ca, capacity)
 
     np.random.seed(RANDOM_SEED)
 
@@ -324,6 +347,9 @@ def main():
         bytes_rcvd = 0.0
         loss_rate = 0.0
         ts = "T00:00:00.000000Z"
+        resource_update = [str(vce), str(0), str(br_min), str(br_max), str(capacity)]
+        print ("\nresource_update -> ", resource_update)
+
         # ava_ca = 0.0
         # br_min = 0
         # br_max = 5
@@ -386,9 +412,13 @@ def main():
             print("-> new_bit_rate [{0}]Mbps"#" - last_bit_rate [{1}]Mbps"
                   .format(VIDEO_BIT_RATE[bit_rate]/1000.0,))
             #VIDEO_BIT_RATE[last_bit_rate]/1000.0))
+            
+            # update resource allocations
+            resource_update = read_resources(resource_update)
+            print (resource_update)
 
             # Now time to check whether the decided bitrate is within our video quality profile
-            new_bit_rate = bitrate_checker(vce, bit_rate, br_min, br_max, profile, priority)
+            new_bit_rate = bitrate_checker(resource_update, vce, bit_rate, br_min, br_max, profile, priority)
             
             if (new_bit_rate != bit_rate):
                 print ("old br [{0}] -> new br [{1}]".format(VIDEO_BIT_RATE[bit_rate], VIDEO_BIT_RATE[new_bit_rate]))
@@ -397,7 +427,7 @@ def main():
             last_bit_rate = bit_rate
             write_kafka_uc2_exec(producer, VIDEO_BIT_RATE[bit_rate])
 
-            advertise_current_state (vce, bit_rate, br_min, br_max, profile, priority, ava_ca, capacity)
+            write_current_state (vce, bit_rate, br_min, br_max, profile, priority, ava_ca, capacity)
     
             # sleep for an INTERVAL before begin reading from Kafka again
             sleep(INTERVAL)
