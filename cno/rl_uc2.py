@@ -17,6 +17,7 @@ import a3c_cno_mks
 from uc2_daemon import get_kafka_producer, write_kafka_uc2_exec
 import argparse
 from datetime import datetime
+from math import floor
 
 S_INFO = 3  # bit_rate, bytes_sent, loss_rate
 S_LEN = 8  # take how many frames in the past
@@ -257,7 +258,7 @@ def init_cmd_params():
                                      epilog="If you have any questions please contact "
                                      "Morteza Kheirkhah <m.kheirkhah@ucl.ac.uk>")
     parser.add_argument("--vce",      type=int,   default=1,     choices=[1, 2])
-    parser.add_argument("--br_min",   type=int,   default=1,     choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+    parser.add_argument("--br_min",   type=int,   default=0,     choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
     parser.add_argument("--br_max",   type=int,   default=9,     choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
     parser.add_argument("--profile",  type=str,   default='standard', choices=['low', 'standard', 'high'])
     parser.add_argument("--priority", type=int,   default=0,     choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
@@ -287,8 +288,7 @@ def write_current_state(vce, br, br_min, br_max, profile, priority, ava_ca, capa
     message = str(vce) + \
         "\t" + str(ts) + "\t" + str(br) + "\t" + str(br_min) + \
         "\t" + str(br_max) + "\t" + profile + "\t" + \
-        str(ava_ca) + "\t" + str(capacity) + "\n"
-
+        str(floor(ava_ca)) + "\t" + str(capacity/1000000.0) + "\n"
     try:
         with open("uc2_current_state.log", "a") as ff:
             ff.write(message)
@@ -412,14 +412,17 @@ def main():
             print("-> new_bit_rate [{0}]Mbps"#" - last_bit_rate [{1}]Mbps"
                   .format(VIDEO_BIT_RATE[bit_rate]/1000.0,))
             #VIDEO_BIT_RATE[last_bit_rate]/1000.0))
-            
+
             # update resource allocations
             resource_update = read_resources(resource_update)
-            print (resource_update)
+            print ("-> resource_update {0}"
+                   " - bitrate is between [{1},{2}]".format(resource_update,
+                                                            VIDEO_BIT_RATE[int(resource_update[2])],
+                                                            VIDEO_BIT_RATE[int(resource_update[3])]))
 
             # Now time to check whether the decided bitrate is within our video quality profile
             new_bit_rate = bitrate_checker(resource_update, vce, bit_rate, br_min, br_max, profile, priority)
-            
+
             if (new_bit_rate != bit_rate):
                 print ("old br [{0}] -> new br [{1}]".format(VIDEO_BIT_RATE[bit_rate], VIDEO_BIT_RATE[new_bit_rate]))
                 bit_rate = new_bit_rate
@@ -428,7 +431,7 @@ def main():
             write_kafka_uc2_exec(producer, VIDEO_BIT_RATE[bit_rate])
 
             write_current_state (vce, bit_rate, br_min, br_max, profile, priority, ava_ca, capacity)
-    
+
             # sleep for an INTERVAL before begin reading from Kafka again
             sleep(INTERVAL)
 
