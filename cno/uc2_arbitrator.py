@@ -15,7 +15,7 @@ TS_VCE_1 = 0.0
 TS_VCE_2 = 0.0
 PROFILE = ["low", "standard", "high"]
 RESET_THRESH = 6
-BW_UNIT = VIDEO_BIT_RATE[1] - VIDEO_BIT_RATE[0] # 6000 - 5000 = 1000 MBps
+# BW_UNIT = VIDEO_BIT_RATE[1] - VIDEO_BIT_RATE[0] # 6000 - 5000 = 1000 MBps
 BITS_IN_MB = 1000000.0
 BITS_IN_KB = 1000.0
 
@@ -39,6 +39,17 @@ def calculate_effective_capacity(vce_1, vce_2, capacity, ava_ca):
                                                 bg_traffic, effective_ca))
     return effective_ca
 
+def find_optimal_br(split_ca):
+    br_pair = (-1, -1)
+    for i in range(len(VIDEO_BIT_RATE)):
+        if (VIDEO_BIT_RATE[i]*BITS_IN_KB > split_ca[0] and br_pair[0] == -1):
+            index = 0 if i-1 < 0 else i-1
+            br_pair = (index, br_pair[1])
+        if (VIDEO_BIT_RATE[i]*BITS_IN_KB> split_ca[1] and br_pair[1] == -1):
+            index = 0 if i-1 < 0 else i-1
+            br_pair = (br_pair[0], index)
+    return br_pair
+
 # profile: ["low", "standard", "high"]
 # vce_1:   [0-vce, 1-ts, 2-br, 3-br_min, 4-br_max, 5-profile, 6-ava_ca, 7-capacity]
 # res_1:   [vce, ts, br_min, br_max, capacity]
@@ -56,8 +67,8 @@ def calculate_resources(vce_1, vce_2, bw_dist, counter):
     print("max capacity -> {0}".format(capacity))
 
     ava_ca = max(float(vce_1[6]), float(vce_2[6]))
-    ava_ca_bw_unit = floor(ava_ca/(BW_UNIT*1000))
-    print("available capacity -> {0}Mbps - BW_UNIT[{1}]x".format(round(ava_ca/1000000.0,2), ava_ca_bw_unit))
+    # ava_ca_bw_unit = floor(ava_ca/(BW_UNIT*1000))
+    print("available capacity -> {0}Mbps".format(round(ava_ca/1000000.0, 2)))
 
     # If a vce doesn't have a stream we shouldn't consider it in our resource allocations
     dist = bw_dist[(profile_1, profile_2)] # this should be based on max capacity - background traffic
@@ -68,13 +79,17 @@ def calculate_resources(vce_1, vce_2, bw_dist, counter):
     split_ca = (dist[0]*effective_ca/100.0, dist[1]*effective_ca/100.0)
     print ("split_ca -> vce-1({0}) |-| vce-2({1})".format(split_ca[0], split_ca[1]))
 
-    split_br_max = find_optimal_br()
-    print(split_br)
-
-    res_1 = [1, ts, vce_1[3], vce_1[4], vce_1[7]]
-    res_2 = [2, ts, vce_2[3], vce_2[4], vce_2[7]]
+    split_br_max = find_optimal_br(split_ca)
+    print("split_br_max -> vce-1({0}) |-| vce-2({1})".format(VIDEO_BIT_RATE[split_br_max[0]],
+                                                             VIDEO_BIT_RATE[split_br_max[1]]))
+    
+    vce_1_br_max = split_br_max[0] if split_br_max[0] < int(vce_1[4]) else int(vce_1[4])
+    vce_2_br_max = split_br_max[1] if split_br_max[1] < int(vce_2[4]) else int(vce_2[4])
+    
+    res_1 = [1, ts, vce_1[3], str(vce_1_br_max), vce_1[7]]
+    res_2 = [2, ts, vce_2[3], str(vce_2_br_max), vce_2[7]]
+    
     return res_1, res_2
-
 
 # [vce, ts, br_min, br_max, capacity]
 def write_resource_alloc(res_1, res_2):
@@ -166,6 +181,38 @@ def generate_bw_dist():
     
     return bw_dist
 
+# res_1 =  [0-1, 1-ts, 2-vce_1[3], 3-str(vce_1_br_max), 4-vce_1[7]]
+# vce_1:   [0-vce, 1-ts, 2-br, 3-br_min, 4-br_max, 5-profile, 6-ava_ca, 7-capacity]
+def analysis_notifications(vce_1, vce_2, res_1, res_2):
+    reduction_thresh = 1*BITS_IN_MB
+    
+    if (float(vce_1[7]) == 0.0 and float(vce_2[7]) == 0.0):
+        print("analysis -> NO active stream!")
+        return
+    elif (float(vce_1[7]) == 0.0 and float(vce_2[7]) != 0.0):
+        print("analysis -> ONE active session from vce_2...")
+    elif (float(vce_1[7]) != 0.0 and float(vce_2[7]) == 0.0):
+        print("analysis -> ONE active session from vce_1...")
+    elif (float(vce_1[7]) != 0.0 and float(vce_2[7]) != 0.0):
+        print("analysis -> TWO active sessions from vce_1 and vce_2...")
+    else:
+        pass
+
+    if (int(vce_1[3]) == int(res_1[3]) and int(vce_2[3]) == int(res_2[3])):
+        if (int(vce_1[6]) == 0 or int(vce_2[6] == 0)): # ava_ca should be zero
+            print("analysis -> session(s) operate at their minimum bitrate, "
+                  "we probaly can ask O-CNO for extra badnwidth...")
+    elif (int(vce_1[4]) == int(res_1[3]) and int(vce_2[4]) == int(res_2[3])):
+        if (int(vce_1[4]) + int(vce_2[4]) < int(vce_1[6]) + reduction_thresh):
+            # aggregate of the max bitrates are smaller then the ava_ca
+            print("analysis -> session(s) can operate at their maximum bitrate, "
+                  "we can either increase the quiality or "
+                  "ask O-CNO to allocated less resource to this service...")
+    else:
+        print("analysis -> normal condition")
+
+
+
 def main():
 
     counter = 0
@@ -183,6 +230,7 @@ def main():
         res_1, res_2 = calculate_resources(vce_1, vce_2, bw_dist, counter)
         # print ("res_1 -> {0}\nres_2 -> {1}".format(res_1, res_2));
         write_resource_alloc(res_1, res_2)
+        analysis_notifications(vce_1, vce_2, res_1, res_2)
         sleep(4.0)
 
 if __name__ == '__main__':
