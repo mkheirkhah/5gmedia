@@ -17,55 +17,59 @@ PROFILE = ["low", "standard", "high"]
 RESET_THRESH = 6
 BW_UNIT = VIDEO_BIT_RATE[1] - VIDEO_BIT_RATE[0] # 6000 - 5000 = 1000 MBps
 BITS_IN_MB = 1000000.0
+BITS_IN_KB = 1000.0
+
+# vce[0-vce, 1-ts, 2-br, 3-br_min, 4-br_max, 5-profile, 6-ava_ca, 7-capacity]
+def calculate_effective_capacity(vce_1, vce_2, capacity, ava_ca):
+    if (capacity == 0):
+        print("No active stream -> effective capacity is zero")
+        return 0
+
+    br_1 = 0 if vce_1[7] == '0.0' else VIDEO_BIT_RATE[int(vce_1[2])] * BITS_IN_KB
+    br_2 = 0 if vce_2[7] == '0.0' else VIDEO_BIT_RATE[int(vce_2[2])] * BITS_IN_KB
+    br_1 = 3000000.0 #VIDEO_BIT_RATE[br_1] * BITS_IN_KB
+    br_2 = 3000000.0 #VIDEO_BIT_RATE[br_2] * BITS_IN_KB
+
+    capacity = capacity * BITS_IN_MB
+    tmp_ca = capacity - br_1 - br_2
+    bg_traffic = abs(tmp_ca - ava_ca)
+    effective_ca = capacity - bg_traffic
+    print("ca[{0}] ava_ca[{1}] br1[{2}] "
+          "br2[{3}] bg[{4}] eff_ca[{5}]".format(capacity, ava_ca, br_1, br_2,
+                                                bg_traffic, effective_ca))
+    return effective_ca
 
 # profile: ["low", "standard", "high"]
 # vce_1:   [0-vce, 1-ts, 2-br, 3-br_min, 4-br_max, 5-profile, 6-ava_ca, 7-capacity]
 # res_1:   [vce, ts, br_min, br_max, capacity]
-def calculate_resources(vce_1, vce_2, bw_dist):
-    print ("========================calculate_resources====================")
+def calculate_resources(vce_1, vce_2, bw_dist, counter):
+    print ("======================== calculate_resources ({0}) ========================".format(counter))
 
     ts = generate_timestamp()
     print ("vce_1 -> {0}\nvce_2 -> {1}".format(vce_1, vce_2))
 
-    # init profile 0 if there is no stream else actual video profile
+    # init profile to 0 if there is no streams else to actual video profile
     profile_1 = '0' if vce_1[7] == '0.0' else vce_1[5]
     profile_2 = '0' if vce_2[7] == '0.0' else vce_2[5]
 
     capacity = (max (float(vce_1[7]), float(vce_2[7])))
     print("max capacity -> {0}".format(capacity))
 
-    # If a vce doesn't have a stream we shouldn't consider it in our resource allocations
-    dist = bw_dist[(profile_1, profile_2)]
-    print("available capacity to distribution -> vce-1({0}%) vce-2({1}%)".format(dist[0], dist[1]))
-
     ava_ca = max(float(vce_1[6]), float(vce_2[6]))
     ava_ca_bw_unit = floor(ava_ca/(BW_UNIT*1000))
     print("available capacity -> {0}Mbps - BW_UNIT[{1}]x".format(round(ava_ca/1000000.0,2), ava_ca_bw_unit))
 
-    
-    # diff_1 = VIDEO_BIT_RATE[int(vce_1[4])] -VIDEO_BIT_RATE[int(vce_1[2])]
-    # diff_2 = VIDEO_BIT_RATE[int(vce_2[4])] -VIDEO_BIT_RATE[int(vce_2[2])]
-    # print ("diff_1 -> {0}\ndiff_2 -> {1}".format(diff_1, diff_2))
+    # If a vce doesn't have a stream we shouldn't consider it in our resource allocations
+    dist = bw_dist[(profile_1, profile_2)] # this should be based on max capacity - background traffic
+    print("available capacity to share -> vce-1({0}%) |-| vce-2({1}%)".format(dist[0], dist[1]))
 
-    
-    if (ava_ca_bw_unit < 0): # very small avaialble capacity
-        pass
-    else:
-        pass
+    effective_ca = calculate_effective_capacity(vce_1, vce_2, capacity, ava_ca)
 
-    if (profile_1 != '0' and profile_2 != '0'):
-        # if (int(vce_1[2]) >= int(vce_1[3]) and int(vce_2[2] >= int(vce_2[3]))):
-        #     if int(vce_1[2]) == int(vce_1[4]):
-        #         pass
-        #     if int(vce_2[2]) == int(vce_2[4]):
-        #         pass
-        # else:
-        #     pass # we need to request from O-CNO for more bandwidth
-        pass
-    elif (profile_1 == '0' and profile_2 != '0'):
-        pass
-    elif (profile_2 == '0' and profile_1 != '0'):
-        pass
+    split_ca = (dist[0]*effective_ca/100.0, dist[1]*effective_ca/100.0)
+    print ("split_ca -> vce-1({0}) |-| vce-2({1})".format(split_ca[0], split_ca[1]))
+
+    split_br_max = find_optimal_br()
+    print(split_br)
 
     res_1 = [1, ts, vce_1[3], vce_1[4], vce_1[7]]
     res_2 = [2, ts, vce_2[3], vce_2[4], vce_2[7]]
@@ -163,17 +167,20 @@ def generate_bw_dist():
     return bw_dist
 
 def main():
-    vce_1, vce_2 = reset_all()
 
+    counter = 0
+    vce_1, vce_2 = reset_all()
+    
     # bandwidth distribution policy
     bw_dist = generate_bw_dist()
     # print ("bw_dist -> {0}".format(bw_dist))
     
     while True:
+        counter += 1
         vce_1, vce_2 = read_current_state(vce_1, vce_2)
         vce_1, vce_2 = reset_current_state(vce_1, vce_2)
         # print ("vce_1 -> {0}\nvce_2 -> {1}".format(vce_1, vce_2))
-        res_1, res_2 = calculate_resources(vce_1, vce_2, bw_dist)
+        res_1, res_2 = calculate_resources(vce_1, vce_2, bw_dist, counter)
         # print ("res_1 -> {0}\nres_2 -> {1}".format(res_1, res_2));
         write_resource_alloc(res_1, res_2)
         sleep(4.0)

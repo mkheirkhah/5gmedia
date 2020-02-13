@@ -6,6 +6,7 @@
 #################################################################################
 
 # Model-4 (lr-ca)(bg5)(sm0)(v+20)(bg+10)(bt10)(l450)
+import sys
 import os
 os.environ['CUDA_VISIBLE_DEVICES'] = ''
 import time
@@ -310,7 +311,7 @@ def main():
            .format(vce, br_min, br_max, profile, priority, ava_ca, capacity))
 
     # As session start up we need to inform the arbitator about this session's details
-    write_current_state (vce, 0, br_min, br_max, profile, priority, ava_ca, capacity)
+    # write_current_state (vce, DEFAULT_QUALITY, br_min, br_max, profile, priority, ava_ca, capacity)
 
     np.random.seed(RANDOM_SEED)
 
@@ -435,6 +436,14 @@ def main():
             # sleep for an INTERVAL before begin reading from Kafka again
             sleep(INTERVAL)
 
-
 if __name__ == '__main__':
     main()
+    # try:
+    #     main()
+    # except KeyboardInterrupt:
+    #     print('Interrupted')
+    #     try:
+    #         sys.exit(0)
+    #     except SystemExit:            
+    #         os._exit(0)
+
