@@ -23,11 +23,13 @@ def main():
     f = open('uc2_read_from_kafka.log', 'w')
     f.close()
 
-    print("Reading from kafka topic" , KAFKA_MONITORING_TOPICS[topic])
+    print("Reading from kafka topic", KAFKA_MONITORING_TOPICS[topic])
     bytesSent = bytesRcvd = bs_ts = br_ts = " "
 
     for msg in consumer:
-        #print(msg.value)
+        if (topic != "uc2_tm"):
+            print(msg.value)
+            continue
 
         if (msg.value["type"] == "nettx"):
             print (msg.value)

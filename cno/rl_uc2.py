@@ -429,7 +429,7 @@ def main():
                 bit_rate = new_bit_rate
 
             last_bit_rate = bit_rate
-            write_kafka_uc2_exec(producer, VIDEO_BIT_RATE[bit_rate])
+            write_kafka_uc2_exec(producer, VIDEO_BIT_RATE[bit_rate], VCE[vce])
 
             write_current_state (vce, bit_rate, br_min, br_max, profile, priority, ava_ca, capacity)
 

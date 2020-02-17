@@ -152,6 +152,7 @@ METRIC_TEMPLATE_UC2_EXEC = {
         "action": "true"
     },
     "execution": {
+        "mac": "vce_id (str)",
         "planning": "set_vce_bitrate",
         "value": "the value of the bitrate"
     }
@@ -161,7 +162,7 @@ METRIC_TEMPLATE_UC2_EXEC = {
 # Kafka topic: ns.instances.conf
 METRIC_TEMPLATE_UC2_CONF = {
     "vce": {
-        #"mac": "string",
+        "mac": "string",
         #"vdu_uuid": "string (VM id)",
         "action": {"bitrate": "integer|kbps"}
     }

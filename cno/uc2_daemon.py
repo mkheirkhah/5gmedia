@@ -74,11 +74,11 @@ def write_to_kafka(producer, value):
     except Exception as ex:
         print(ex)
 
-def write_kafka_uc2_exec(producer, value):
+def write_kafka_uc2_exec(producer, value, vce_id):
     try:
         now = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f")
         tmp_metric = METRIC_TEMPLATE_UC2_EXEC
-        metric = generate_metric_uc2_exec(value, now, tmp_metric)
+        metric = generate_metric_uc2_exec(value, now, tmp_metric, vce_id)
         print("->", metric) #"write_kafka_uc2_exec() ->"
         t = producer.send(KAFKA_EXECUTION_TOPIC["uc2_exec"], metric)
         #print(KAFKA_EXECUTION_TOPIC["uc2_exec"])
