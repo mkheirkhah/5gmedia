@@ -21,8 +21,8 @@ KAFKA_TOPIC = "uc2_cno"
 
 def change_tm_bw(bw):
     print("change_tm_bw -> {0}".format(bw))
-    os.system("sudo tc qdisc add dev ens3 root tbf rate 20mbit burst 32kbit latency 400ms")
-    os.system("sudo tc qdisc add dev ifb0 root tbf rate 20mbit burst 32kbit latency 400ms")
+    os.system("sudo tc qdisc replace dev ens3 root tbf rate 20mbit burst 32kbit latency 400ms")
+    os.system("sudo tc qdisc replace dev ifb0 root tbf rate 20mbit burst 32kbit latency 400ms")
 
 def main():    
     consumer = get_kafka_consumer(KAFKA_TOPIC)
