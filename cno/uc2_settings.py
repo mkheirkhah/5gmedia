@@ -31,11 +31,18 @@ KAFKA_CLIENT_ID = 'CNO_UC2_UCL'
 KAFKA_API_VERSION = (0, 10, 1)
 KAFKA_PREFIX_TOPIC = "devstack"  # "devstack.*"
 #KAFKA_MONITORING_TOPICS = {"openstack": "nvfi.eng.openstack", "vmware": "vmware", }
-KAFKA_MONITORING_TOPICS = {"uc2_tm":"trafficmanager.uc2.metrics", "uc2_qoe": "app.uc2.qoe", \
-                           "uc2_vce":"nfvi.tid-onlife.opennebula", 'uc3_load': 'ns.instances.trans',\
-                           "uc2_mon_exec":'ns.instances.exec', "uc2_mon_conf": 'ns.instances.conf'}
+KAFKA_MONITORING_TOPICS = {"uc2_tm":"trafficmanager.uc2.metrics",\
+                           "uc2_qoe":"app.uc2.qoe",\
+                           "uc2_vce":"nfvi.tid-onlife.opennebula",\
+                           'uc3_load':'ns.instances.trans',\
+                           "uc2_mon_exec":'ns.instances.exec',\
+                           "uc2_mon_conf":'ns.instances.conf',\
+                           "uc2_mon_vce":'app.vce.metrics'}
+
 KAFKA_TRANSLATION_TOPIC_SUFFIX = "trans"
-KAFKA_EXECUTION_TOPIC = {"uc2_exec": 'ns.instances.exec', "uc2_conf" : 'ns.instances.conf'}
+KAFKA_EXECUTION_TOPIC = {"uc2_exec":'ns.instances.exec',\
+                         "uc2_conf":'ns.instances.conf',\
+                         "uc2_vce":'app.vce.metrics'}
 
 # =================================
 # OSM SETTINGS
@@ -157,6 +164,14 @@ METRIC_TEMPLATE_UC2_EXEC = {
         "value": "the value of the bitrate"
     }
     # the rest needs to be completed
+}
+
+# Kafka topic: app.vce.metrics
+METRIC_TEMPLATE_UC2_VCE = {
+    "id": "mac_address|string",
+    "utc_time": 1580915872858,
+    "metric_x": "float or int",
+    "metric_y": "float or int"
 }
 
 # Kafka topic: ns.instances.conf

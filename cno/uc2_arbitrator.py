@@ -9,7 +9,8 @@ import argparse
 from time import sleep
 from datetime import datetime
 from rl_uc2 import generate_timestamp
-from rl_uc2 import VIDEO_BIT_RATE
+from rl_uc2 import VIDEO_BIT_RATE, VCE
+from uc2_daemon import get_kafka_producer, write_kafka_uc2_vce
 
 TS_VCE_1 = 0.0
 TS_VCE_2 = 0.0
@@ -27,8 +28,8 @@ def calculate_effective_capacity(vce_1, vce_2, capacity, ava_ca):
 
     br_1 = 0 if vce_1[7] == '0.0' else VIDEO_BIT_RATE[int(vce_1[2])] * BITS_IN_KB
     br_2 = 0 if vce_2[7] == '0.0' else VIDEO_BIT_RATE[int(vce_2[2])] * BITS_IN_KB
-    br_1 = 3000000.0 #VIDEO_BIT_RATE[br_1] * BITS_IN_KB
-    br_2 = 3000000.0 #VIDEO_BIT_RATE[br_2] * BITS_IN_KB
+    # br_1 = 3000000.0 #VIDEO_BIT_RATE[br_1] * BITS_IN_KB
+    # br_2 = 3000000.0 #VIDEO_BIT_RATE[br_2] * BITS_IN_KB
 
     capacity = capacity * BITS_IN_MB
     tmp_ca = capacity - br_1 - br_2
@@ -75,34 +76,47 @@ def calculate_resources(vce_1, vce_2, bw_dist, counter):
     print("available capacity to share -> vce-1({0}%) |-| vce-2({1}%)".format(dist[0], dist[1]))
 
     effective_ca = calculate_effective_capacity(vce_1, vce_2, capacity, ava_ca)
+    br_1 = 0 if vce_1[7] == '0.0' else VIDEO_BIT_RATE[int(vce_1[2])] * BITS_IN_KB
+    br_2 = 0 if vce_2[7] == '0.0' else VIDEO_BIT_RATE[int(vce_2[2])] * BITS_IN_KB
+    real_usable_ca = effective_ca - br_1 - br_2
+    real_split_ca = (br_1 + dist[0]*real_usable_ca/100.0, br_2+ dist[1]*real_usable_ca/100.0)
+    print ("real_split_ca -> vce-1({0}) |-| vce-2({1})".format(real_split_ca[0], real_split_ca[1]))
+    real_split_br_max = find_optimal_br(real_split_ca)
+    print("rea_split_br_max -> vce-1({0}) |-| vce-2({1})".format(VIDEO_BIT_RATE[real_split_br_max[0]],
+                                                                 VIDEO_BIT_RATE[real_split_br_max[1]]))
+        
+    # split_ca = (dist[0]*effective_ca/100.0, dist[1]*effective_ca/100.0)
+    # print ("split_ca -> vce-1({0}) |-| vce-2({1})".format(split_ca[0], split_ca[1]))
 
-    split_ca = (dist[0]*effective_ca/100.0, dist[1]*effective_ca/100.0)
-    print ("split_ca -> vce-1({0}) |-| vce-2({1})".format(split_ca[0], split_ca[1]))
+    # split_br_max = find_optimal_br(split_ca)
+    # print("split_br_max -> vce-1({0}) |-| vce-2({1})".format(VIDEO_BIT_RATE[split_br_max[0]],
+    #                                                          VIDEO_BIT_RATE[split_br_max[1]]))
 
-    split_br_max = find_optimal_br(split_ca)
-    print("split_br_max -> vce-1({0}) |-| vce-2({1})".format(VIDEO_BIT_RATE[split_br_max[0]],
-                                                             VIDEO_BIT_RATE[split_br_max[1]]))
-    
-    vce_1_br_max = split_br_max[0] if split_br_max[0] < int(vce_1[4]) else int(vce_1[4])
-    vce_2_br_max = split_br_max[1] if split_br_max[1] < int(vce_2[4]) else int(vce_2[4])
-    
+    # vce_1_br_max = split_br_max[0] if split_br_max[0] < int(vce_1[4]) else int(vce_1[4])
+    # vce_2_br_max = split_br_max[1] if split_br_max[1] < int(vce_2[4]) else int(vce_2[4])
+
+    vce_1_br_max = real_split_br_max[0] if real_split_br_max[0] < int(vce_1[4]) else int(vce_1[4])
+    vce_2_br_max = real_split_br_max[1] if real_split_br_max[1] < int(vce_2[4]) else int(vce_2[4])
+
     res_1 = [1, ts, vce_1[3], str(vce_1_br_max), vce_1[7]]
     res_2 = [2, ts, vce_2[3], str(vce_2_br_max), vce_2[7]]
-    
+
     return res_1, res_2
 
-# [vce, ts, br_min, br_max, capacity]
-def write_resource_alloc(res_1, res_2):
+# res_x: [vce, ts, br_min, br_max, capacity]
+def write_resource_alloc(res_1, res_2, producer):
     m_1 = "".join(str(e) + "\t" for e in res_1) + "\n"
     m_2 = "".join(str(e) + "\t" for e in res_2) + "\n"    
     try:
         with open("uc2_resource_dist.log", "a") as ff:
             if (float(res_1[4]) != 0.0):
                 ff.write(m_1)
-                print ("res_1 -> {0}".format(res_1));
+                write_kafka_uc2_vce(producer, res_1, VCE[res_1[0]], VIDEO_BIT_RATE) # for vce_1
+                print ("res_1 -> {0}".format(res_1))
             if (float(res_2[4]) != 0.0):
                 ff.write(m_2)
-                print ("res_2 -> {0}".format(res_2));
+                write_kafka_uc2_vce(producer, res_2, VCE[res_2[0]], VIDEO_BIT_RATE) # for vce_2
+                print ("res_2 -> {0}".format(res_2))
     except Exception as ex:
         print(ex)
 
@@ -178,7 +192,7 @@ def generate_bw_dist():
     bw_dist[("0","standard")] = (0, 100)
     bw_dist[("0","low")] = (0, 100)
     bw_dist[("0","0")] = (0, 0)
-    
+
     return bw_dist
 
 # res_1 =  [0-1, 1-ts, 2-vce_1[3], 3-str(vce_1_br_max), 4-vce_1[7]]
@@ -212,9 +226,8 @@ def analysis_notifications(vce_1, vce_2, res_1, res_2):
         print("analysis -> normal condition")
 
 
-
 def main():
-
+    producer = get_kafka_producer()
     counter = 0
     vce_1, vce_2 = reset_all()
     
@@ -229,7 +242,7 @@ def main():
         # print ("vce_1 -> {0}\nvce_2 -> {1}".format(vce_1, vce_2))
         res_1, res_2 = calculate_resources(vce_1, vce_2, bw_dist, counter)
         # print ("res_1 -> {0}\nres_2 -> {1}".format(res_1, res_2));
-        write_resource_alloc(res_1, res_2)
+        write_resource_alloc(res_1, res_2, producer)
         analysis_notifications(vce_1, vce_2, res_1, res_2)
         sleep(4.0)
 

@@ -15,7 +15,7 @@ def main():
     try:
         topic = sys.argv[1]
     except Exception as ex:
-        print (ex, "No input from cmdd, then use the default topic {0}".format(TOPIC_DEFAULT))
+        print (ex, "\nNo input from cmd, we use the default topic '{0}'".format(TOPIC_DEFAULT))
         topic = TOPIC_DEFAULT
     
     consumer = get_kafka_consumer(topic)

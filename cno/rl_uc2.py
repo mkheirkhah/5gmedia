@@ -92,7 +92,7 @@ NN_MODEL = './trained_models/nn_model_ep_10800_m4_bg51_v20_bg10_l500_sm1.ckpt' #
 
 INTERVAL = 1.0
 MBPS = 1000000.0
-CAPACITY = 20000000.0
+# CAPACITY = 20000000.0
 
 def extract_ts(line):
     extract = line[line.find("T") + 1:line.find("Z")]
@@ -118,12 +118,12 @@ def get_ts_dur(ts_new, ts_cur):
     #print ("get_ts_dur() -> new_ts_dur[{0}]".format(total_seconds))
     return total_seconds
 
-def cal_lr(ca_tx, ca_rx, ca_free):
+def cal_lr(ca_tx, ca_rx, ca_free, capacity):
     # when there is capacity, loss_rate is 0.0
     if (ca_free > 0.0 or ca_rx == 0.0):
         return 0.0
     
-    lr = ca_rx - CAPACITY
+    lr = ca_rx - capacity
     lr = 0.0 if lr < 0.0 else lr
     lr_frac = lr / float(ca_rx)
     
@@ -182,7 +182,7 @@ def get_last_kafka_msg():
     return float(bs), ts, float(br), float(lr)
 
 
-def read_kafka(last_bytes_sent, last_bytes_rcvd, last_lr, last_ts, last_ca):
+def read_kafka(last_bytes_sent, last_bytes_rcvd, last_lr, last_ts, last_ca, capacity):
     with open("uc2_read_from_kafka.log", "r") as ff:
         for line in ff:
             col = line.split()
@@ -212,10 +212,10 @@ def read_kafka(last_bytes_sent, last_bytes_rcvd, last_lr, last_ts, last_ca):
                 ca_tx = cal_ca(bs, last_bytes_sent, ts_dur) #bps
                 ca_rx = cal_ca(br, last_bytes_rcvd, ts_dur) #bps
 
-                ca_free = CAPACITY - max(ca_rx, ca_tx)
+                ca_free = capacity - max(ca_rx, ca_tx)
                 ca_free = 0.0 if ca_free < 0.0 else ca_free
 
-                lr = cal_lr(ca_tx, ca_rx, ca_free) # 0 < lr < 1
+                lr = cal_lr(ca_tx, ca_rx, ca_free, capacity) # 0 < lr < 1
 
                 print("-> ca_free[{0}]Mbps | loss_rate[{1}]% | rx[{2}]Mbps | tx[{3}]Mbps | dur[{4}]s"
                       .format(round(ca_free/MBPS,3),
@@ -367,7 +367,7 @@ def main():
 
             while True:
                 bytes_sent, bytes_rcvd, loss_rate, ts, ava_ca, result = \
-                    read_kafka(bytes_sent, bytes_rcvd, loss_rate, ts, ava_ca)
+                    read_kafka(bytes_sent, bytes_rcvd, loss_rate, ts, ava_ca, capacity)
                 if (result):
                     break
                 else:
@@ -393,7 +393,7 @@ def main():
             # last chunk bit rate (number)
             state[0, -1] = VIDEO_BIT_RATE[bit_rate] / float(np.max(VIDEO_BIT_RATE))  # last quality
             # past chunk throughput (array) # video_chunk_size is measured in byte
-            state[1, -1] = float(ava_ca / CAPACITY)  # bits/s -> megabytes/s
+            state[1, -1] = float(ava_ca / capacity)  # bits/s -> megabytes/s
             # loss rate (array)
             state[2, -1] = float(loss_rate)  # loss_rate
 
