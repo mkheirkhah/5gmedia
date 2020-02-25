@@ -25,3 +25,32 @@ def generate_metric_uc2_vce(metric_value, timestamp, tmp, vce_id, video_bit_rate
     metric['metric_x'] = video_bit_rates[int(metric_value[2])] #int
     metric['metric_y'] = video_bit_rates[int(metric_value[3])] #int
     return metric
+
+    # "sender": "O-CNO",
+    # "receiver": "UC_2",
+    # "timstamp": 1580915872858,
+    # "resource":
+    # {
+    #     "GPU": 0,
+    #     "CPU": 0,
+    #     "RAM": None,
+    #     "disk": None,
+    #     "bw": +20
+    # },
+    # "option": "granted"
+
+def generate_metric_uc2_cno(bandwidth, timestamp, tmp_metric, msg_type):
+    metric = tmp_metric
+    if (msg_type == "request"):
+        metric['sender'] = "UC_2"
+        metric['receiver'] = "O-CNO"
+        metric['timestamp'] = timestamp
+        metric['resource']['bw'] = bandwidth
+        metric['option'] = msg_type
+    elif (msg_type == "respond"):
+        metric['sender'] = "O-CNO"
+        metric['receiver'] = "UC_2"
+        metric['timestamp'] = timestamp
+        metric['resource']['bw'] = bandwidth
+        metric['option'] = msg_type
+    return metric

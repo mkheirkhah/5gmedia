@@ -10,7 +10,9 @@ from time import sleep
 from datetime import datetime
 from rl_uc2 import generate_timestamp
 from rl_uc2 import VIDEO_BIT_RATE, VCE
-from uc2_daemon import get_kafka_producer, write_kafka_uc2_vce
+from uc2_daemon import get_kafka_producer, \
+    write_kafka_uc2_vce, \
+    write_kafka_uc2_cno
 
 TS_VCE_1 = 0.0
 TS_VCE_2 = 0.0
@@ -19,6 +21,9 @@ RESET_THRESH = 6
 # BW_UNIT = VIDEO_BIT_RATE[1] - VIDEO_BIT_RATE[0] # 6000 - 5000 = 1000 MBps
 BITS_IN_MB = 1000000.0
 BITS_IN_KB = 1000.0
+
+BW_REQ = True
+# BW_REQ_COUNTER = 0
 
 # vce[0-vce, 1-ts, 2-br, 3-br_min, 4-br_max, 5-profile, 6-ava_ca, 7-capacity]
 def calculate_effective_capacity(vce_1, vce_2, capacity, ava_ca):
@@ -195,9 +200,10 @@ def generate_bw_dist():
 
     return bw_dist
 
-# res_1 =  [0-1, 1-ts, 2-vce_1[3], 3-str(vce_1_br_max), 4-vce_1[7]]
-# vce_1:   [0-vce, 1-ts, 2-br, 3-br_min, 4-br_max, 5-profile, 6-ava_ca, 7-capacity]
-def analysis_notifications(vce_1, vce_2, res_1, res_2):
+# vce_1:[0-vce, 1-ts, 2-br, 3-br_min, 4-br_max, 5-profile, 6-ava_ca, 7-capacity]
+# res_1:[0-1, 1-ts, 2-vce_1[3], 3-str(vce_1_br_max), 4-vce_1[7]]
+def analysis_notifications(vce_1, vce_2, res_1, res_2, producer):
+    global BW_REQ
     reduction_thresh = 1*BITS_IN_MB
     
     if (float(vce_1[7]) == 0.0 and float(vce_2[7]) == 0.0):
@@ -215,7 +221,12 @@ def analysis_notifications(vce_1, vce_2, res_1, res_2):
     if (int(vce_1[3]) == int(res_1[3]) and int(vce_2[3]) == int(res_2[3])):
         if (int(vce_1[6]) == 0 or int(vce_2[6] == 0)): # ava_ca should be zero
             print("analysis -> session(s) operate at their minimum bitrate, "
-                  "we probaly can ask O-CNO for extra badnwidth...")
+                  "we now ask 'O-CNO' to give us +20Mbps bandwidth")
+            if (BW_REQ == True):
+                # BW_REQ_COUNTER = BW_REQ_COUNTER + 1
+                write_kafka_uc2_cno(producer, "request", +20)
+                # BW_REQ = False
+
     elif (int(vce_1[4]) == int(res_1[3]) and int(vce_2[4]) == int(res_2[3])):
         if (int(vce_1[4]) + int(vce_2[4]) < int(vce_1[6]) + reduction_thresh):
             # aggregate of the max bitrates are smaller then the ava_ca
@@ -243,7 +254,7 @@ def main():
         res_1, res_2 = calculate_resources(vce_1, vce_2, bw_dist, counter)
         # print ("res_1 -> {0}\nres_2 -> {1}".format(res_1, res_2));
         write_resource_alloc(res_1, res_2, producer)
-        analysis_notifications(vce_1, vce_2, res_1, res_2)
+        analysis_notifications(vce_1, vce_2, res_1, res_2, producer)
         sleep(4.0)
 
 if __name__ == '__main__':

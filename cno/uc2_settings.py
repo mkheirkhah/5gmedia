@@ -37,12 +37,14 @@ KAFKA_MONITORING_TOPICS = {"uc2_tm":"trafficmanager.uc2.metrics",\
                            'uc3_load':'ns.instances.trans',\
                            "uc2_mon_exec":'ns.instances.exec',\
                            "uc2_mon_conf":'ns.instances.conf',\
-                           "uc2_mon_vce":'app.vce.metrics'}
+                           "uc2_mon_vce":'app.vce.metrics',\
+                           "uc2_cno":'cno'}
 
 KAFKA_TRANSLATION_TOPIC_SUFFIX = "trans"
 KAFKA_EXECUTION_TOPIC = {"uc2_exec":'ns.instances.exec',\
                          "uc2_conf":'ns.instances.conf',\
-                         "uc2_vce":'app.vce.metrics'}
+                         "uc2_vce":'app.vce.metrics',\
+                         "uc2_cno":'cno'}
 
 # =================================
 # OSM SETTINGS
@@ -173,6 +175,36 @@ METRIC_TEMPLATE_UC2_VCE = {
     "metric_x": "float or int",
     "metric_y": "float or int"
 }
+
+METRIC_TEMPLATE_UC2_CNO_REQUEST = {
+    "sender": "UC_2",
+    "receiver": "O-CNO",
+    "timestamp": 1580915872858,
+    "resource":
+    {
+        "GPU": 0,
+        "CPU": 0,
+        "RAM": None,
+        "disk": None,
+        "bw": +20
+    },
+    "option": "request"
+}
+METRIC_TEMPLATE_UC2_CNO_RESPOND = {
+    "sender": "O-CNO",
+    "receiver": "UC_2",
+    "timstamp": 1580915872858,
+    "resource":
+    {
+        "GPU": 0,
+        "CPU": 0,
+        "RAM": None,
+        "disk": None,
+        "bw": +20
+    },
+    "option": "granted"
+}
+
 
 # Kafka topic: ns.instances.conf
 METRIC_TEMPLATE_UC2_CONF = {

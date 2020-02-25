@@ -1,13 +1,20 @@
 import json
+import calendar
+import time
 from datetime import datetime
 from kafka import KafkaConsumer, KafkaProducer
 
 from uc2_settings import KAFKA_SERVER, KAFKA_API_VERSION, \
     KAFKA_EXECUTION_TOPIC, KAFKA_MONITORING_TOPICS, \
-    KAFKA_CLIENT_ID, KAFKA_SERVER,\
-    METRIC_TEMPLATE_UC2_EXEC,\
-    METRIC_TEMPLATE_UC2_VCE
-from uc2_metric_generator import generate_metric_uc2_exec, generate_metric_uc2_vce
+    KAFKA_CLIENT_ID, KAFKA_SERVER, \
+    METRIC_TEMPLATE_UC2_EXEC, \
+    METRIC_TEMPLATE_UC2_VCE, \
+    METRIC_TEMPLATE_UC2_CNO_REQUEST, \
+    METRIC_TEMPLATE_UC2_CNO_RESPOND
+from uc2_metric_generator import generate_metric_uc2_exec, \
+    generate_metric_uc2_vce, \
+    generate_metric_uc2_cno, \
+    generate_metric_uc2_cno
 
 
 def get_msg_temp_uc2(topic="uc2_tm"):
@@ -96,6 +103,26 @@ def write_kafka_uc2_vce(producer, res, vce_id, video_bit_rates):
         metric = generate_metric_uc2_vce(res, now, tmp_metric, vce_id, video_bit_rates)
         print("{0} <- {1}".format(KAFKA_EXECUTION_TOPIC["uc2_vce"], metric))
         t = producer.send(KAFKA_EXECUTION_TOPIC["uc2_vce"], metric)
+        result = t.get(timeout=60)
+    except Exception as ex:
+        print (ex)
+
+
+def write_kafka_uc2_cno(producer, msg_type, bw):
+    try:
+        now = calendar.timegm(time.gmtime())
+        tmp_metric = ""
+        metric = ""
+        if (msg_type == "request"):
+            tmp_metric = METRIC_TEMPLATE_UC2_CNO_REQUEST
+            metric = generate_metric_uc2_cno(bw, now, tmp_metric, msg_type)
+        elif(msg_type == "respond"):
+            tmp_metric = METRIC_TEMPLATE_UC2_CNO_RESPOND
+            metric = generate_metric_uc2_cno(bw, now, tmp_metric, msg_type)
+            #
+        assert(metric != "")
+        print("{0} <- {1}".format(KAFKA_EXECUTION_TOPIC["uc2_cno"], metric))
+        t = producer.send(KAFKA_EXECUTION_TOPIC["uc2_cno"], metric)
         result = t.get(timeout=60)
     except Exception as ex:
         print (ex)
