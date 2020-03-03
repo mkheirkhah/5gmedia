@@ -30,6 +30,7 @@ ACTOR_LR_RATE = 0.0001
 VIDEO_BIT_RATE = [5000, 6000, 7000, 8000, 9000, 10000, 11000, 15000, 19000, 20000]
 
 M_IN_K = 1000.0
+BITS_IN_MB = 1000000.0
 DEFAULT_QUALITY = 1
 RANDOM_SEED = 42
 RAND_RANGE = 1000
@@ -229,21 +230,23 @@ def read_kafka(last_bytes_sent, last_bytes_rcvd, last_lr, last_ts, last_ca, capa
         #print("read_kafka() -> there is no messages in the Kafka to read...")
         return last_bytes_sent, last_bytes_rcvd, last_lr, last_ts, last_ca, 0
 
+# res_x:[vce, ts, br_min, br_max, capacity]
 def read_resources(resource_update):
     try:
         with open("uc2_resource_dist.log", "r") as ff:
             for line in ff:
                 col = line.split()
+                # right vce instance
                 if int(col[0]) == int(resource_update[0]):
+                    # ts > last_ts
                     if int(col[1]) > (int(resource_update[1])):
                         resource_update = col
-
     except Exception as ex:
-        f = open('uc2_read_from_kafka.log', 'w')
+        f = open('uc2_resource_dist.log', 'w')
         f.close()
         print(ex)
-
     return resource_update
+
 
 def bitrate_checker(resource_update, vce, bit_rate, br_min, br_max, profile, priority):
     if (bit_rate < int(resource_update[2])):
@@ -289,12 +292,20 @@ def write_current_state(vce, br, br_min, br_max, profile, priority, ava_ca, capa
     message = str(vce) + \
         "\t" + str(ts) + "\t" + str(br) + "\t" + str(br_min) + \
         "\t" + str(br_max) + "\t" + profile + "\t" + \
-        str(floor(ava_ca)) + "\t" + str(capacity/1000000.0) + "\n"
+        str(floor(ava_ca)) + "\t" + str(capacity/BITS_IN_MB) + "\n"
     try:
         with open("uc2_current_state.log", "a") as ff:
             ff.write(message)
     except Exception as ex:
         print(ex)
+
+# res[vce, ts, br_min, br_max, capacity]
+def update_capacity(resource_update, capacity):
+    new_capacity = float(resource_update[4]) * BITS_IN_MB
+    if capacity != new_capacity:
+        print("capacity [{0}] new_capacity[{1}]".format(capacity, new_capacity))
+        return new_capacity
+    return capacity
 
 def main():
 
@@ -348,9 +359,12 @@ def main():
         bytes_rcvd = 0.0
         loss_rate = 0.0
         ts = "T00:00:00.000000Z"
-        resource_update = [str(vce), str(0), str(br_min), str(br_max), str(capacity)]
+        resource_update = [str(vce), str(0), str(br_min), str(br_max), str(capacity/BITS_IN_MB)]
         print ("\nresource_update -> ", resource_update)
 
+        # It is better to wait after getting the first sample from monitoring systems
+        # write_current_state (vce, bit_rate, br_min, br_max, profile, priority, ava_ca, capacity)
+        
         # ava_ca = 0.0
         # br_min = 0
         # br_max = 5
@@ -420,7 +434,7 @@ def main():
                    " - bitrate is between [{1},{2}]".format(resource_update,
                                                             VIDEO_BIT_RATE[int(resource_update[2])],
                                                             VIDEO_BIT_RATE[int(resource_update[3])]))
-
+            
             # Now time to check whether the decided bitrate is within our video quality profile
             new_bit_rate = bitrate_checker(resource_update, vce, bit_rate, br_min, br_max, profile, priority)
 
@@ -431,8 +445,11 @@ def main():
             last_bit_rate = bit_rate
             write_kafka_uc2_exec(producer, VIDEO_BIT_RATE[bit_rate], VCE[vce])
 
-            write_current_state (vce, bit_rate, br_min, br_max, profile, priority, ava_ca, capacity)
+            # update capacity if needed
+            capacity = update_capacity(resource_update, capacity)
 
+            write_current_state (vce, bit_rate, br_min, br_max, profile, priority, ava_ca, capacity)
+            
             # sleep for an INTERVAL before begin reading from Kafka again
             sleep(INTERVAL)
 
@@ -444,6 +461,5 @@ if __name__ == '__main__':
     #     print('Interrupted')
     #     try:
     #         sys.exit(0)
-    #     except SystemExit:            
+    #     except SystemExit:
     #         os._exit(0)
-
