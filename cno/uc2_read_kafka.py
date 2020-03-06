@@ -37,7 +37,7 @@ def main():
             bs_ts = msg.value["timestamp"]
 
         if (msg.value["type"] == "netrx"):
-            #print (msg.value)
+            print (msg.value)
             bytesRcvd = msg.value["value"]
             br_ts = msg.value["timestamp"]
 

@@ -218,17 +218,18 @@ def read_kafka(last_bytes_sent, last_bytes_rcvd, last_lr, last_ts, last_ca, capa
 
                 lr = cal_lr(ca_tx, ca_rx, ca_free, capacity) # 0 < lr < 1
 
-                print("-> ca_free[{0}]Mbps | loss_rate[{1}]% | rx[{2}]Mbps | tx[{3}]Mbps | dur[{4}]s"
+                print("-> ca[{5}]Mbps ca_free[{0}]Mbps | loss_rate[{1}] | rx[{2}]Mbps | tx[{3}]Mbps | dur[{4}]s"
                       .format(round(ca_free/MBPS,3),
                               round(lr,6),
                               round(ca_rx/MBPS, 3),
                               round(ca_tx/MBPS, 3),
-                              ts_dur))
-                return bs, br, lr, ts, ca_free, 1
+                              ts_dur,
+                              capacity/MBPS))
+                return bs, br, lr, ts, ca_free, 1, ts_dur
 
         #return last metrics
         #print("read_kafka() -> there is no messages in the Kafka to read...")
-        return last_bytes_sent, last_bytes_rcvd, last_lr, last_ts, last_ca, 0
+        return last_bytes_sent, last_bytes_rcvd, last_lr, last_ts, last_ca, 0, 0
 
 # res_x:[vce, ts, br_min, br_max, capacity]
 def read_resources(resource_update):
@@ -242,18 +243,27 @@ def read_resources(resource_update):
                     if int(col[1]) > (int(resource_update[1])):
                         resource_update = col
     except Exception as ex:
-        f = open('uc2_resource_dist.log', 'w')
-        f.close()
+        # f = open('uc2_resource_dist.log', 'w')
+        # f.close()
         print(ex)
     return resource_update
 
-
+# res[vce, ts, br_min, br_max, capacity]
 def bitrate_checker(resource_update, vce, bit_rate, br_min, br_max, profile, priority):
+    assert (br_min == int(resource_update[2]))
+    assert (int(resource_update[3]) <= br_max)
+    
     if (bit_rate < int(resource_update[2])):
         return int(resource_update[2])
     elif (bit_rate > int(resource_update[3])):
         return int(resource_update[3])
+
+    # ensure br is never smaller than the br_min
+    if bit_rate < int(resource_update[2]):
+        bit_rate = int(resource_update[2])
+
     return bit_rate
+    # return int(resource_update[3])
 
 def init_cmd_params():
     parser = argparse.ArgumentParser(description='Parameters setting for use case 2 (UC2) of the 5G-MEDIA project.',
@@ -286,13 +296,14 @@ def generate_timestamp():
     now = calendar.timegm(time.gmtime())
     return now
 
-def write_current_state(vce, br, br_min, br_max, profile, priority, ava_ca, capacity):
+def write_current_state(vce, br, br_min, br_max, profile, priority, ava_ca, capacity, loss_rate, ts_dur):
     ts = generate_timestamp()
     #str(list(VCE.keys())[list(VCE.values()).index(vce)]) + \
     message = str(vce) + \
         "\t" + str(ts) + "\t" + str(br) + "\t" + str(br_min) + \
         "\t" + str(br_max) + "\t" + profile + "\t" + \
-        str(floor(ava_ca)) + "\t" + str(capacity/BITS_IN_MB) + "\n"
+        str(floor(ava_ca)) + "\t" + str(capacity/BITS_IN_MB) + "\t" + \
+        str(float(loss_rate)) + "\t" + str(ts_dur) + "\n"
     try:
         with open("uc2_current_state.log", "a") as ff:
             ff.write(message)
@@ -380,7 +391,11 @@ def main():
             print("\n**** [{0}] ****".format(counter))
 
             while True:
-                bytes_sent, bytes_rcvd, loss_rate, ts, ava_ca, result = \
+                # read resource_update and update capacity
+                resource_update = read_resources(resource_update)
+                capacity = update_capacity(resource_update, capacity)
+                # read kafka
+                bytes_sent, bytes_rcvd, loss_rate, ts, ava_ca, result, ts_dur = \
                     read_kafka(bytes_sent, bytes_rcvd, loss_rate, ts, ava_ca, capacity)
                 if (result):
                     break
@@ -430,10 +445,11 @@ def main():
 
             # update resource allocations
             resource_update = read_resources(resource_update)
-            print ("-> resource_update {0}"
-                   " - bitrate is between [{1},{2}]".format(resource_update,
-                                                            VIDEO_BIT_RATE[int(resource_update[2])],
-                                                            VIDEO_BIT_RATE[int(resource_update[3])]))
+            print ("-> resource_update {0} - bitrate is between [{1},{2}]"
+                   " - priority [{3}]".format(resource_update,
+                                                        VIDEO_BIT_RATE[int(resource_update[2])],
+                                                        VIDEO_BIT_RATE[int(resource_update[3])],
+                                                        profile))
             
             # Now time to check whether the decided bitrate is within our video quality profile
             new_bit_rate = bitrate_checker(resource_update, vce, bit_rate, br_min, br_max, profile, priority)
@@ -448,7 +464,7 @@ def main():
             # update capacity if needed
             capacity = update_capacity(resource_update, capacity)
 
-            write_current_state (vce, bit_rate, br_min, br_max, profile, priority, ava_ca, capacity)
+            write_current_state (vce, bit_rate, br_min, br_max, profile, priority, ava_ca, capacity, loss_rate, ts_dur)
             
             # sleep for an INTERVAL before begin reading from Kafka again
             sleep(INTERVAL)
