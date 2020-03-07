@@ -4,6 +4,7 @@
 # Email:       m.kheirkhah@ucl.ac.uk
 # Homepage:    http://www.uclmail.net/users/m.kheirkhah/
 #################################################################################
+
 from math import floor
 import argparse
 from time import sleep
@@ -15,6 +16,10 @@ from uc2_daemon import get_kafka_producer, \
     write_kafka_uc2_cno, \
     write_kafka_uc2_tm, \
     write_kafka_uc2_exec
+
+CA_HIGH = 0.3
+CA_LOW  = 0.15
+CA_LOWEST = 0.05
 
 TS_VCE_1 = 0.0
 TS_VCE_2 = 0.0
@@ -29,18 +34,19 @@ BW_REQ_COUNT = 0
 BW_REQ_THRESH = 0 #24 # 6 * 4
 BW_REQ_RESET = 80 # 20*4 = 80 seconds
 BW_REQ_SAVE_COUNTER = 0
-BW_EXTRA = 20   #Mbps
+# BW_EXTRA = 20   #Mbps
 BW_CAP = 150    #Mbps
 BW_CURRENT = 0.0
 BW_DEFAULT = 0.0
 
 BW_REDUCE_REQ = True
 BW_REDUCE_REQ_COUNT = 0
-BW_REDUCE_REQ_THRESH = 24
+BW_REDUCE_REQ_THRESH = 5 #24
 BW_REDUCE_OFFSET = 5 * BITS_IN_MB # larger the soon to reset bw
 # BW_REDUCE_RESET = 5
 
 COUNTER = 0
+CAL_RES_COUNT = 0
 SLEEP_INTERVAL = 1.0
 
 # vce[0-vce, 1-ts, 2-br, 3-br_min, 4-br_max, 5-profile, 6-ava_ca, 7-capacity]
@@ -108,14 +114,16 @@ def simple_analysis(vce_1, vce_2):
         print("simple_analysis() - > **UNKNOWN**")
         return "UNKNOWN"
     
-def update_real_split_ca(real_split_ca, capacity):
+def update_real_split_ca(real_split_ca, capacity, ava_ca):
     freed_ca = 0
     total_ca = real_split_ca[0]+real_split_ca[1]
     max_br = VIDEO_BIT_RATE[len(VIDEO_BIT_RATE)-1] * BITS_IN_KB
-    # vcheck ce-1 
+    min_br = VIDEO_BIT_RATE[0] * BITS_IN_KB
+    # check vce-1 
     if (real_split_ca[0] > max_br):
         freed_ca += real_split_ca[0] - max_br
         real_split_ca = (max_br, real_split_ca[1])
+    # check vce-2
     if (real_split_ca[1] > max_br):
         freed_ca += real_split_ca[1] - max_br
         real_split_ca = (real_split_ca[0], max_br)
@@ -126,14 +134,79 @@ def update_real_split_ca(real_split_ca, capacity):
     elif (real_split_ca[1] < max_br): # (old, new)
         real_split_ca = (real_split_ca[0], real_split_ca[1]+freed_ca)
         print("update_real_split_ca() -> vce-2 [{0}]".format(real_split_ca))
+    
     return real_split_ca
+
+# vce_1:   [0-vce, 1-ts, 2-br, 3-br_min, 4-br_max, 5-profile, 6-ava_ca, 7-capacity]
+# res_1:   [vce, ts, br_min, br_max, capacity]
+def update_real_split_br_max(vce_1, vce_2, ava_ca, real_split_br_max):
+    if (TS_VCE_1 != 0.0 and TS_VCE_2 != 0.0):
+        return real_split_br_max
+    
+    carry_on = simple_analysis(vce_1, vce_2) != "NO_STREAM"
+    ca_frac_high = BW_CURRENT * BITS_IN_MB * CA_HIGH
+    ca_frac_low = BW_CURRENT * BITS_IN_MB * CA_LOW
+    loss_rate = max(float(vce_1[8]), float(vce_2[8])) * 100.0
+    
+    if (ca_frac_low < ava_ca <= ca_frac_high and carry_on):
+        print("*********************************************************************************************")
+        print("Available capacity is smaller than [{0}] of the maximum capacity -> "
+              "ava_ca[{1}] ca_frac_high[{2}]".format(CA_HIGH*100.0,
+                                                     ava_ca/BITS_IN_MB, ca_frac_high/BITS_IN_MB))
+        if (str(vce_1[5]) != str(vce_2[5])): # when profiles are not the same
+            if (get_profile(vce_1[5]) < get_profile(vce_2[5])): # integer comparison
+                # vce_1 has lower priority, reduce its bitrate by one
+                # if (TS_VCE_1 == 0.0):
+                # real_split_br_max_0 = real_split_br_max[0] - 1 if real_split_br_max[0] > 0 else real_split_br_max[0]
+                real_split_br_max_0 = int(vce_1[3])
+                real_split_br_max = (real_split_br_max_0, real_split_br_max[1])
+                print("bw presure reset a low priority stream to br_min (vce_1)", real_split_br_max)
+                # if there is a loss, reduce bitrate for high prioirty as well (i.e. vce_2).
+                if (loss_rate > 0.0):
+                    # if (TS_VCE_2 == 0.0):
+                    real_split_br_max_1 = real_split_br_max[1] - 1 if real_split_br_max[1] > 0 else real_split_br_max[1]
+                    real_split_br_max = (real_split_br_max[0], real_split_br_max_1)
+                    print("Alos decrease from a high prioirty (vce_2) due to losses", real_split_br_max)
+            else:
+                # vce_2 has lower priority, reduce its bitrate by one
+                # if (TS_VCE_2 == 0.0):
+                # real_split_br_max_1 = real_split_br_max[1] - 1 if real_split_br_max[1] > 0 else real_split_br_max[1]
+                real_split_br_max_1 = int(vce_2[3])
+                real_split_br_max = (real_split_br_max[0], real_split_br_max_1)
+                print("bw pressure reset a low priority stream to br_min (vce_2)", real_split_br_max)
+                # if there is a loss, reduce bitrate for high prioirty as well (i.e. vce_1).
+                if (loss_rate > 0.0):
+                    # if (TS_VCE_1 == 0.0):
+                    real_split_br_max_0 = real_split_br_max[0] - 1 if real_split_br_max[0] > 0 else real_split_br_max[0]
+                    real_split_br_max = (real_split_br_max_0, real_split_br_max[1])
+                    print("Also decrease from a high priority stream (vce_1) due to losses", real_split_br_max)
+        else:
+            if (loss_rate > 0.0): # reduce aggresively from all streams
+                real_split_br_max = (int(vce_1[3]), int(vce_2[3]))
+                print("reset all streams to their br_min due to losses", real_split_br_max)
+            else: # reduce slightly from all streams
+                real_split_br_max_0 = real_split_br_max[0] - 1 if real_split_br_max[0] > 0 else real_split_br_max[0]
+                real_split_br_max_1 = real_split_br_max[1] - 1 if real_split_br_max[1] > 0 else real_split_br_max[1]
+                real_split_br_max = (real_split_br_max_0, real_split_br_max_1)
+                print("decrease from all streams since they have similar priority", real_split_br_max)
+        print("*********************************************************************************************")
+    elif (ava_ca <= ca_frac_low and carry_on):
+        real_split_br_max = (int(vce_1[3]), int(vce_2[3]))
+        print("*********************************************************************************************")
+        print("Available capacity is smaller than [{0}] of the maximum capacity -> "
+              "ava_ca[{1}] ca_frac_low[{2}]".format(CA_LOW*100.0,
+                                                    ava_ca/BITS_IN_MB, ca_frac_low/BITS_IN_MB))
+        print("*********************************************************************************************")
+    return real_split_br_max
 
 # profile: ["low", "standard", "high"]
 # vce_1:   [0-vce, 1-ts, 2-br, 3-br_min, 4-br_max, 5-profile, 6-ava_ca, 7-capacity]
 # res_1:   [vce, ts, br_min, br_max, capacity]
-def calculate_resources(vce_1, vce_2, bw_dist, counter, producer):
-    print ("======================== calculate_resources ({0}) ========================".format(counter))
-
+def calculate_resources(vce_1, vce_2, bw_dist, producer):
+    global CAL_RES_COUNT
+    CAL_RES_COUNT += 1
+    print ("======================== cal_res ({0}) ({1}) ========================".format(COUNTER, CAL_RES_COUNT))
+    
     ts = generate_timestamp()
     active_1 = "NOT ACTIVE" if vce_1[7] == '0.0' else "ACTIVE"
     active_2 = "NOT ACTIVE" if vce_2[7] == '0.0' else "ACTIVE"
@@ -151,8 +224,8 @@ def calculate_resources(vce_1, vce_2, bw_dist, counter, producer):
     ava_ca = max(float(vce_1[6]), float(vce_2[6]))
     print("available capacity -> {0}Mbps".format(round(ava_ca/BITS_IN_MB, 2)))
 
-    if (ava_ca > BW_CURRENT*BITS_IN_MB):
-        print("Capacity has been reduced recently let's SKIP this ROUND... "
+    if (ava_ca > BW_CURRENT * BITS_IN_MB):
+        print("Capacity has been reduced recently, no need to recalcualte... "
               "ava_ca[{0}] BW_CURRENT[{1}]".format(ava_ca, BW_CURRENT * BITS_IN_MB))
         res_1 = [1, ts, vce_1[3], vce_1[4], capacity]
         res_2 = [2, ts, vce_2[3], vce_2[4], capacity]
@@ -170,24 +243,27 @@ def calculate_resources(vce_1, vce_2, bw_dist, counter, producer):
     print ("real_split_ca -> vce-1({0}) |-| vce-2({1})".format(real_split_ca[0], real_split_ca[1]))
     
     if (simple_analysis(vce_1, vce_2) == "TWO_STREAMS"):
-        real_split_ca = update_real_split_ca(real_split_ca, capacity)
+        real_split_ca = update_real_split_ca(real_split_ca, capacity, ava_ca)
     
     real_split_br_max = find_optimal_br(real_split_ca)
     print("real_split_br_max -> vce-1({0}) |-| vce-2({1})".format(VIDEO_BIT_RATE[real_split_br_max[0]],
                                                                   VIDEO_BIT_RATE[real_split_br_max[1]]))
 
-    # split_ca = (dist[0]*effective_ca/100.0, dist[1]*effective_ca/100.0)
-    # print ("split_ca -> vce-1({0}) |-| vce-2({1})".format(split_ca[0], split_ca[1]))
-
-    # split_br_max = find_optimal_br(split_ca)
-    # print("split_br_max -> vce-1({0}) |-| vce-2({1})".format(VIDEO_BIT_RATE[split_br_max[0]],
-    #                                                          VIDEO_BIT_RATE[split_br_max[1]]))
-
-    # vce_1_br_max = split_br_max[0] if split_br_max[0] < int(vce_1[4]) else int(vce_1[4])
-    # vce_2_br_max = split_br_max[1] if split_br_max[1] < int(vce_2[4]) else int(vce_2[4])
-
+    # effective_ca is negative reset all streams to their min_br
+    if (effective_ca < 0.0 and simple_analysis(vce_1, vce_2) != "NO_STREAM"):
+        real_split_br_max = (int(vce_1[3]), int(vce_2[3]))
+        print("\neffective_ca is small reset all bitrates to their minimum -> {0}\n".format(real_split_br_max))
+         
+    # CA_LOW <= ava_ca <= CA_HIGH % of maximum capacity
+    real_split_br_max = update_real_split_br_max(vce_1, vce_2, ava_ca, real_split_br_max)
+    
+    # br_max should not be larger than br_max
     vce_1_br_max = real_split_br_max[0] if real_split_br_max[0] < int(vce_1[4]) else int(vce_1[4])
     vce_2_br_max = real_split_br_max[1] if real_split_br_max[1] < int(vce_2[4]) else int(vce_2[4])
+
+    # br_max should not be smaller than br_min
+    vce_1_br_max = real_split_br_max[0] if real_split_br_max[0] >= int(vce_1[3]) else int(vce_1[3])
+    vce_2_br_max = real_split_br_max[1] if real_split_br_max[1] >= int(vce_2[3]) else int(vce_2[3])
 
     res_1 = [1, ts, vce_1[3], str(vce_1_br_max), capacity] # vce_1[7] -> capacity
     res_2 = [2, ts, vce_2[3], str(vce_2_br_max), capacity] # vce_2[7] -> capacity
@@ -196,14 +272,14 @@ def calculate_resources(vce_1, vce_2, bw_dist, counter, producer):
 
 def get_profile(profile):
     quality = 0
-    if (profile == "low"):
+    if (profile == 'low'):
         quality = 0
-    elif (profile == "standard"):
+    elif (profile == 'standard'):
         quality = 1
-    elif (profile == "high"):
+    elif (profile == 'high'):
         quality = 2
     else:
-        print("Quality profile is unknown...!")
+        print("Quality profile is unknown...! {0}".format)
         exit(0)
     return quality
 
@@ -227,20 +303,28 @@ def write_resource_alloc(vce_1, vce_2, res_1, res_2, producer):
 
 def reset_all(producer):
     global TS_VCE_1, TS_VCE_2
-    print("reset_all()")
+    print("\n**********************reset_all()**********************")
     f = open("uc2_current_state.log", "w")
     f.close()
     f = open("uc2_resource_dist.log", "w")
     f.close()
+    f = open('uc2_read_from_kafka.log', 'w')
+    f.close()
+
     TS_VCE_1 = 0.0
     TS_VCE_2 = 0.0
+    
     vce_1 = ["1", "0", "0", "0", "0", "0", "0", "0.0", "0.0", "0.0"]
     vce_2 = ["2", "0", "0", "0", "0", "0", "0", "0.0", "0.0", "0.0"]
+
+    deactivate_vce(producer, LOW_BR, "1")
+    deactivate_vce(producer, LOW_BR, "2")
     write_kafka_uc2_cno(producer, "request", BW_CURRENT)
+    print("*******************************************************\n")
     return vce_1, vce_2
 
 def reset_current_state(vce_1, vce_2, producer):
-    print("reset_current_state() -> TS_VCE_1[{0}]  TS_VCE_2[{1}]".format(TS_VCE_1, TS_VCE_2))
+    print("reset_current_state() -> TS_VCE_1[{0}] TS_VCE_2[{1}] COUNTER[{2}]".format(TS_VCE_1, TS_VCE_2, COUNTER))
     if (TS_VCE_1 > RESET_THRESH):
         vce_1[7] = "0.0"
     if (TS_VCE_2 > RESET_THRESH):
@@ -313,9 +397,10 @@ def analysis_notifications(vce_1, vce_2, res_1, res_2, producer):
     global BW_REDUCE_REQ_COUNT, BW_REDUCE_REQ, BW_REQ_SAVE_COUNTER
 
     # after 3 sample (3 * 20s) reset BW_REDUCE_REQ_COUNT
-    if (BW_REQ == False and (COUNTER - BW_REQ_SAVE_COUNTER) >= BW_REQ_RESET):
-        BW_REQ = True
-        # BW_REQ_COUNT = 1
+    # if (BW_REQ == False and (COUNTER - BW_REQ_SAVE_COUNTER) >= BW_REQ_RESET):
+    #     print("\n<---OK NOW WE CAN INCREASE BW AGAIN--->\n")
+    #     BW_REQ = True
+    #     # BW_REQ_COUNT = 1
 
     # curr_bw = max(floor(float(vce_1[7])), floor(float(vce_2[7])))
     ava_ca = max(float(vce_1[6]), float(vce_2[6]))
@@ -323,43 +408,40 @@ def analysis_notifications(vce_1, vce_2, res_1, res_2, producer):
 
     if (float(vce_1[7]) == 0.0 and float(vce_2[7]) == 0.0):
         print("analysis -> NO active stream!")
-        # turn off both vce-1 and vce-2
         deactivate_vce(producer, LOW_BR, vce_1[0])
         deactivate_vce(producer, LOW_BR, vce_2[0])
         return res_1, res_2
     elif (float(vce_1[7]) == 0.0 and float(vce_2[7]) != 0.0):
-        # turn off vce-1
         deactivate_vce(producer, LOW_BR, vce_1[0])
         print("analysis -> ONE active session from vce_2...")
     elif (float(vce_1[7]) != 0.0 and float(vce_2[7]) == 0.0):
-        # turn off vce_2
         deactivate_vce(producer, LOW_BR, vce_2[0])
         print("analysis -> ONE active session from vce_1...")
     elif (float(vce_1[7]) != 0.0 and float(vce_2[7]) != 0.0):
         all_active = True
         print("analysis -> TWO active sessions from vce_1 and vce_2...")
-        #
-        # vce_1:[0-vce, 1-ts, 2-br, 3-br_min, 4-br_max, 5-profile, 6-ava_ca, 7-capacity]
-        # res_1:[0-1, 1-ts, 2-vce_1[3], 3-str(vce_1_br_max), 4-vce_1[7]]
-    if (all_active and int(vce_1[3]) == int(res_1[3]) and int(vce_2[3]) == int(res_2[3])):
-        if (int(vce_1[6]) == 0 or int(vce_2[6] == 0) # ava_ca should be zero
-            and (float(vce_1[8]) > 0.0 or float(vce_2[8]) > 0.0)):
-            print("analysis -> session(s) operate at their minimum bitrate, "
-                  "-> BW_REQ[{0}] BW_REQ_COUNT[{1}]".format(BW_REQ, BW_REQ_COUNT))
-            BW_REQ_COUNT += 1
 
-            if (BW_REQ == True and BW_REQ_COUNT >= BW_REQ_THRESH):
-                BW_REQ = False
+    # vce_1:[0-vce, 1-ts, 2-br, 3-br_min, 4-br_max, 5-profile, 6-ava_ca, 7-capacity, 8-loss, 9-ts_dur]
+    # res_1:[0-1, 1-ts, 2-vce_1[3], 3-str(vce_1_br_max), 4-vce_1[7]]
+    if (all_active and int(vce_1[3]) == int(res_1[3]) and int(vce_2[3]) == int(res_2[3])):
+        ca_frac_lowest = BW_CURRENT * BITS_IN_MB * CA_LOWEST
+        if (int(vce_1[6]) <= ca_frac_lowest or int(vce_2[6]) <= ca_frac_lowest): # ava_ca <= 5% (eg)
+            # and (float(vce_1[8]) > 0.0 or float(vce_2[8]) > 0.0)): # loss > 0.0
+            BW_REQ_COUNT += 1
+            print("analysis -> session(s) operate at their minimum bitrate, "
+                  "-> BW_REQ[{0}] BW_REQ_COUNT[{1}] BW_REQ_THRESH[{2}]".format(BW_REQ, BW_REQ_COUNT, BW_REQ_THRESH))
+            if (BW_REQ == True and BW_REQ_COUNT > BW_REQ_THRESH): # for now execute with no delay
+                # BW_REQ = False
                 BW_REQ_COUNT = 0
                 BW_REQ_SAVE_COUNTER = COUNTER
-                # bw = float(curr_bw + BW_EXTRA)
-                bw = float(BW_CURRENT + BW_EXTRA)
+                bw = float(BW_CURRENT + BW_DEFAULT)
                 res_1[4] = str(bw)
                 res_2[4] = str(bw)
                 if (bw <= BW_CAP):
                     print("analysis -> INCREASE CAPACITY FROM {0} -> {1}".format(BW_CURRENT, bw))
                     BW_CURRENT = bw
                     write_kafka_uc2_cno(producer, "request", bw)
+    #
     # elif (all_active and int(vce_1[4]) == int(res_1[3]) and int(vce_2[4]) == int(res_2[3])):
     # br_total = (VIDEO_BIT_RATE[int(vce_1[4])] + VIDEO_BIT_RATE[int(vce_2[4])]) * BITS_IN_KB #bps
     # if (br_total < float(vce_1[6]) + BW_REDUCE_OFFSET): #bps
@@ -367,20 +449,17 @@ def analysis_notifications(vce_1, vce_2, res_1, res_2, producer):
     elif (BW_CURRENT > BW_DEFAULT and ava_ca >= ((BW_CURRENT - BW_DEFAULT) * BITS_IN_MB)):
         # bw = float(VIDEO_BIT_RATE[int(vce_1[4])] + VIDEO_BIT_RATE[int(vce_2[4])]) / BITS_IN_KB #mbps
         # bw = float(BW_CURRENT - BW_EXTRA)
-        bw = BW_DEFAULT
+        bw = BW_CURRENT - BW_DEFAULT
         print("analysis -> More capacity is avaialble more than required -> "
-              "BW_REDUCE_REQ[{0}] BW_REDUCE_REQ_COUNT[{1}]".format(BW_REDUCE_REQ,
-                                                                   BW_REDUCE_REQ_COUNT,
-                                                                   ava_ca))
+              "BW_REDUCE_REQ[{0}] BW_REDUCE_REQ_COUNT[{1}]".format(BW_REDUCE_REQ, BW_REDUCE_REQ_COUNT, ava_ca))
         BW_REDUCE_REQ_COUNT += 1
         # if (BW_REDUCE_REQ_COUNT % BW_REDUCE_RESET == 0):
         #     BW_REDUCE_REQ_COUNT = 1
         #     BW_REDUCE_REQ = True
         if (BW_REDUCE_REQ == True and BW_REDUCE_REQ_COUNT >= BW_REDUCE_REQ_THRESH):
             print("analysis -> REDUCE CAPACITY FROM {0} -> {1}".format(BW_CURRENT, BW_DEFAULT))
-
             # BW_REDUCE_REQ = False
-            BW_REDUCE_REQ_COUNT = 1
+            BW_REDUCE_REQ_COUNT = 0
             res_1[4] = str(bw) #mbps
             res_2[4] = str(bw) #mbps
             BW_CURRENT = bw
@@ -425,12 +504,14 @@ def main():
         # print ("vce_1 -> {0}\nvce_2 -> {1}".format(vce_1, vce_2))
         vce_1, vce_2 = reset_current_state(vce_1, vce_2, producer)
         # print ("vce_1 -> {0}\nvce_2 -> {1}".format(vce_1, vce_2))
-        res_1, res_2 = calculate_resources(vce_1, vce_2, bw_dist, COUNTER, producer)
-        # print ("res_1 -> {0}\nres_2 -> {1}".format(res_1, res_2));
-        res_1, res_2 = analysis_notifications(vce_1, vce_2, res_1, res_2, producer)
-        # print ("res_1 -> {0}\nres_2 -> {1}".format(res_1, res_2));
-        write_resource_alloc(vce_1, vce_2, res_1, res_2, producer)
-        write_current_tm(producer, vce_1, vce_2)
+        carry_on = False if (float(vce_1[7]) == 0.0 and float(vce_2[7]) == 0.0) else True
+        if (carry_on and (TS_VCE_1 == 0.0 or TS_VCE_2 == 0.0)):
+            res_1, res_2 = calculate_resources(vce_1, vce_2, bw_dist, producer)
+            # print ("res_1 -> {0}\nres_2 -> {1}".format(res_1, res_2));
+            res_1, res_2 = analysis_notifications(vce_1, vce_2, res_1, res_2, producer)
+            # print ("res_1 -> {0}\nres_2 -> {1}".format(res_1, res_2));
+            write_resource_alloc(vce_1, vce_2, res_1, res_2, producer)
+            write_current_tm(producer, vce_1, vce_2)
 
         sleep(SLEEP_INTERVAL)
 

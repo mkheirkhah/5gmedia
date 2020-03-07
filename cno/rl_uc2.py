@@ -31,7 +31,7 @@ VIDEO_BIT_RATE = [5000, 6000, 7000, 8000, 9000, 10000, 11000, 15000, 19000, 2000
 
 M_IN_K = 1000.0
 BITS_IN_MB = 1000000.0
-DEFAULT_QUALITY = 1
+DEFAULT_QUALITY = 1 # 1 was orignal
 RANDOM_SEED = 42
 RAND_RANGE = 1000
 VCE = {1 : "06:00:cc:74:72:95", 2 : "06:00:cc:74:72:99"}
@@ -72,7 +72,7 @@ VCE = {1 : "06:00:cc:74:72:95", 2 : "06:00:cc:74:72:99"}
 #NN_MODEL = './trained_models/nn_model_ep_113800_m4_bg5_v20_bg10_l500.ckpt' #[05<25][r6][READY_2! more trained!]
 
 #NN_MODEL = './trained_models/nn_model_ep_12800_m4_bg51_v20_bg10_l500_sm1.ckpt' #[<][rg][]
-NN_MODEL = './trained_models/nn_model_ep_10800_m4_bg51_v20_bg10_l500_sm1.ckpt' #[5<11][rg6][Run during dry-run]
+# NN_MODEL = './trained_models/nn_model_ep_10800_m4_bg51_v20_bg10_l500_sm1.ckpt' #[5<11][rg6][*Run during last demo*]
 #NN_MODEL = './trained_models/nn_model_ep_40600_m4_bg51_v20_bg10_l500_sm1.ckpt' #[5<11][rg6][re-run dry-run more training]
 #NN_MODEL = './trained_models/nn_model_ep_26800_m4_bg51_v20_bg10_l500_sm1.ckpt' #[<][rg][]
 
@@ -90,6 +90,10 @@ NN_MODEL = './trained_models/nn_model_ep_10800_m4_bg51_v20_bg10_l500_sm1.ckpt' #
 #NN_MODEL = './trained_models/nn_model_ep_22200_m4_bg5_v10_bg10_l450.ckpt' #[5<25][r6] Almost Perfect!
 #NN_MODEL = './trained_models/nn_model_ep_22800_m4_bg5_v10_bg20_l450.ckpt' #[8<25][r4]
 
+# For final demo
+# NN_MODEL = './trained_models/NN_FINAL_176500.ckpt'     # alpha 100
+NN_MODEL = './trained_models/NN_ALPHA_150_228900.ckpt'   # alpha 150
+# NN_MODEL = './trained_models/NN_ALPHA_200_104400.ckpt' # alpha 200
 
 INTERVAL = 1.0
 MBPS = 1000000.0
@@ -278,6 +282,7 @@ def init_cmd_params():
     parser.add_argument("--priority", type=int,   default=0,     choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
     parser.add_argument("--ava_ca",   type=float, default=0.0)
     parser.add_argument("--capacity", type=float, default=20000000.0)
+    parser.add_argument("--seed",     type=int, default=42)
     args = parser.parse_args()
 
     # init parameters
@@ -288,7 +293,8 @@ def init_cmd_params():
     priority = args.priority
     ava_ca   = args.ava_ca
     capacity = args.capacity
-    return vce, br_min, br_max, profile, priority, ava_ca, capacity
+    seed     = args.seed
+    return vce, br_min, br_max, profile, priority, ava_ca, capacity, seed
 
 def generate_timestamp():
     # now = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f")
@@ -320,7 +326,7 @@ def update_capacity(resource_update, capacity):
 
 def main():
 
-    vce, br_min, br_max, profile, priority, ava_ca, capacity = init_cmd_params()
+    vce, br_min, br_max, profile, priority, ava_ca, capacity, seed = init_cmd_params()
     print ("\n******************************************************************************"
            "\nvce [{0}]"
            "\nbr_min [{1}]"
@@ -329,13 +335,14 @@ def main():
            "\npriority [{4}]"
            "\nava_ca [{5}]"
            "\ncapacity [{6}]"
+           "\nseed [{7}]"
            "\n******************************************************************************"
-           .format(vce, br_min, br_max, profile, priority, ava_ca, capacity))
+           .format(vce, br_min, br_max, profile, priority, ava_ca, capacity, seed))
 
     # As session start up we need to inform the arbitator about this session's details
     # write_current_state (vce, DEFAULT_QUALITY, br_min, br_max, profile, priority, ava_ca, capacity)
 
-    np.random.seed(RANDOM_SEED)
+    np.random.seed(seed)
 
     assert len(VIDEO_BIT_RATE) == A_DIM
 
@@ -370,6 +377,7 @@ def main():
         bytes_rcvd = 0.0
         loss_rate = 0.0
         ts = "T00:00:00.000000Z"
+        # only for the inital bitrate
         resource_update = [str(vce), str(0), str(br_min), str(br_max), str(capacity/BITS_IN_MB)]
         print ("\nresource_update -> ", resource_update)
 
@@ -436,7 +444,14 @@ def main():
                 np.random.randint(1, RAND_RANGE) / float(RAND_RANGE)).argmax()
 
             s_batch.append(state)
- 
+
+            # for first bitrate stick to DEFAULT_QUALITY
+            if (counter <= 1):
+                bit_rate = br_min
+                # bit_rate = 0
+                write_current_state (vce, bit_rate, br_min, br_max, profile, priority, ava_ca, capacity, loss_rate, ts_dur)
+                sleep(1.5)
+
             # write new bit-rate to Kafka to be delivered to vCompression
             #if (last_bit_rate != bit_rate):
             print("-> new_bit_rate [{0}]Mbps"#" - last_bit_rate [{1}]Mbps"
@@ -455,9 +470,10 @@ def main():
             new_bit_rate = bitrate_checker(resource_update, vce, bit_rate, br_min, br_max, profile, priority)
 
             if (new_bit_rate != bit_rate):
-                print ("old br [{0}] -> new br [{1}]".format(VIDEO_BIT_RATE[bit_rate], VIDEO_BIT_RATE[new_bit_rate]))
+                print ("old br [{0}] -> new br by arbitrator [{1}]".format(VIDEO_BIT_RATE[bit_rate],
+                                                                           VIDEO_BIT_RATE[new_bit_rate]))
                 bit_rate = new_bit_rate
-
+            
             last_bit_rate = bit_rate
             write_kafka_uc2_exec(producer, VIDEO_BIT_RATE[bit_rate], VCE[vce])
 
