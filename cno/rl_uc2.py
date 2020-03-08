@@ -285,7 +285,7 @@ def init_cmd_params():
     parser.add_argument("--profile",  type=str,   default='standard', choices=['low', 'standard', 'high'])
     parser.add_argument("--priority", type=int,   default=0,     choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
     parser.add_argument("--ava_ca",   type=float, default=0.0)
-    parser.add_argument("--ca",       type=float, default=20.0)
+    parser.add_argument("--ca",       type=float, default=50.0)
     parser.add_argument("--seed",     type=int, default=42)
     args = parser.parse_args()
 

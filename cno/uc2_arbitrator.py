@@ -39,9 +39,10 @@ BW_CAP = 150    #Mbps
 BW_CURRENT = 0.0
 BW_DEFAULT = 0.0
 
+BW_REDUCE_FRAC = 0.4
 BW_REDUCE_REQ = True
 BW_REDUCE_REQ_COUNT = 0
-BW_REDUCE_REQ_THRESH = 12 #24
+BW_REDUCE_REQ_THRESH = 6 #24
 # BW_REDUCE_OFFSET = 5 * BITS_IN_MB # larger the soon to reset bw
 # BW_REDUCE_RESET = 5
 
@@ -238,6 +239,7 @@ def calculate_resources(vce_1, vce_2, bw_dist, producer):
     ts_delay = TS_NOW - TS_OLD
     TS_OLD = TS_NOW
     print ("\n======================== cal_res ({0}) ({1}) ========================".format(COUNTER, CAL_RES_COUNT))
+    # TEMP #
     print("TS_VCE_1[{0}] TS_VCE_2[{1}] TS_DELAY[{2}]".format(TS_VCE_1, TS_VCE_2, ts_delay))
 
     ts = generate_timestamp()
@@ -251,9 +253,10 @@ def calculate_resources(vce_1, vce_2, bw_dist, producer):
     profile_2 = '0' if vce_2[7] == '0.0' else vce_2[5]
 
     capacity = BW_CURRENT
-    print("max capacity -> {0}Mbps br_vce_1[{1}]Kbps  br_vce_2[{2}]Kbps".format(capacity,
-                                                                                VIDEO_BIT_RATE[int(vce_1[2])],
-                                                                                VIDEO_BIT_RATE[int(vce_2[2])]))
+    print("max capacity -> {0}Mbps".format(capacity))
+    # print("max capacity -> {0}Mbps br_vce_1[{1}]Kbps  br_vce_2[{2}]Kbps".format(capacity,
+    #                                                                             VIDEO_BIT_RATE[int(vce_1[2])],
+    #                                                                             VIDEO_BIT_RATE[int(vce_2[2])]))
     ava_ca = max(float(vce_1[6]), float(vce_2[6]))
     print("available capacity -> {0}Mbps".format(round(ava_ca/BITS_IN_MB, 2)))
 
@@ -266,7 +269,7 @@ def calculate_resources(vce_1, vce_2, bw_dist, producer):
 
     # If a vce doesn't have a stream we shouldn't consider it in our resource allocations
     dist = bw_dist[(profile_1, profile_2)] # this should be based on max capacity - background traffic
-    print("available capacity to share -> vce-1({0}%) |-| vce-2({1}%)".format(dist[0], dist[1]))
+    print("available capacity to share (%) -> vce-1({0}%) |-| vce-2({1}%)".format(dist[0], dist[1]))
 
     effective_ca = calculate_effective_capacity(vce_1, vce_2, capacity, ava_ca)
     br_1 = 0 if vce_1[7] == '0.0' else VIDEO_BIT_RATE[int(vce_1[2])] * BITS_IN_KB
@@ -282,8 +285,8 @@ def calculate_resources(vce_1, vce_2, bw_dist, producer):
         print ("---->>>> real_split_ca -> vce-1({0}) |-| vce-2({1}) ----<<<<".format(real_split_ca[0], real_split_ca[1]))
 
     # if possible give more to low quality stream
-    # if (simple_analysis(vce_1, vce_2) == "TWO_STREAMS"):
-    #     real_split_ca = update_real_split_ca(real_split_ca, capacity, ava_ca)
+    if (simple_analysis(vce_1, vce_2) == "TWO_STREAMS"):
+        real_split_ca = update_real_split_ca(real_split_ca, capacity, ava_ca)
     
     real_split_br_max = find_optimal_br(real_split_ca)
     print("real_split_br_max -> vce-1({0}) |-| vce-2({1})".format(VIDEO_BIT_RATE[real_split_br_max[0]],
@@ -348,7 +351,8 @@ def write_resource_alloc(vce_1, vce_2, res_1, res_2, producer):
 def reset_all(producer):
     global TS_VCE_1, TS_VCE_2
     print("\n**********************reset_all()**********************")
-    print("reset_all() -> TS_VCE_1[{0}] TS_VCE_2[{1}] COUNTER[{2}]".format(TS_VCE_1, TS_VCE_2, COUNTER))
+    # TEMP #
+    print("reset_all() -> TS_VCE_1[{0}] TS_VCE_2[{1}] COUNTER[{2}]".format(TS_VCE_1, TS_VCE_2, COUNTER)) 
     
     f = open("uc2_current_state.log", "w")
     f.close()
@@ -445,7 +449,7 @@ def analysis_notifications(vce_1, vce_2, res_1, res_2, producer):
 
     ava_ca = max(float(vce_1[6]), float(vce_2[6]))
     all_active = False
-
+    
     if (float(vce_1[7]) == 0.0 and float(vce_2[7]) == 0.0):
         print("analysis -> NO active stream!")
         deactivate_vce(producer, LOW_BR, vce_1[0])
@@ -488,19 +492,22 @@ def analysis_notifications(vce_1, vce_2, res_1, res_2, producer):
                     BW_CURRENT = bw
                     write_kafka_uc2_cno(producer, "request", bw)
     # elif (all_active and BW_CURRENT > BW_DEFAULT and ava_ca >= ((BW_CURRENT - BW_DEFAULT) * BITS_IN_MB)):
-    elif (all_active and BW_CURRENT > BW_DEFAULT and ava_ca > (BW_DEFAULT * BITS_IN_MB * 0.5)):
+    elif (all_active and BW_CURRENT > BW_DEFAULT and ava_ca > (BW_DEFAULT * BITS_IN_MB * BW_REDUCE_FRAC * 2.0)):
         BW_REQ_COUNT = 0 # reset counter of the other condition
-        bw = BW_CURRENT - (BW_DEFAULT * 0.5) # reduce gently (by half default)
+        bw = BW_CURRENT - (BW_DEFAULT * BW_REDUCE_FRAC) # reduce gently (by 40% default)
 
-        if((BW_CURRENT - BW_DEFAULT) >= BW_DEFAULT and ava_ca > (BW_DEFAULT * BITS_IN_MB)):
-            bw = BW_CURRENT - BW_DEFAULT # reduce aggresively (by full default)
-            print ("analysis -> happy to reduce BW aggresively - NEW BW[{0}]".format(bw))
+        if (bw <= BW_DEFAULT):
+            bw = BW_DEFAULT
+
+        # if((BW_CURRENT - BW_DEFAULT) >= BW_DEFAULT and ava_ca > (BW_DEFAULT * BITS_IN_MB)):
+        #     bw = BW_CURRENT - BW_DEFAULT # reduce aggresively (by full default)
+        #     print ("analysis -> happy to reduce BW aggresively - NEW BW[{0}]".format(bw))
 
         print("analysis -> More capacity is available than required -> "
               "BW_REDUCE_REQ[{0}] BW_REDUCE_REQ_COUNT[{1}]".format(BW_REDUCE_REQ, BW_REDUCE_REQ_COUNT))
         BW_REDUCE_REQ_COUNT += 1
         if (BW_REDUCE_REQ == True and BW_REDUCE_REQ_COUNT >= BW_REDUCE_REQ_THRESH):
-            print("analysis -> REDUCE CAPACITY FROM {0} -> {1}".format(BW_CURRENT, BW_DEFAULT * 0.5))
+            print("analysis -> REDUCE CAPACITY FROM {0} -> {1}".format(BW_CURRENT, BW_DEFAULT * BW_REDUCE_FRAC))
             # BW_REDUCE_REQ = False
             BW_REDUCE_REQ_COUNT = 0
             res_1[4] = str(bw) #mbps
@@ -523,6 +530,7 @@ def analysis_notifications(vce_1, vce_2, res_1, res_2, producer):
     else:
         BW_REDUCE_REQ_COUNT = 0
         BW_REQ_COUNT = 0
+        # TEMP #
         print("analysis -> normal condition BW_REQ_COUNT[{0}] BW_REDUCE_REQ_COUNT[{1}]".format(BW_REQ_COUNT,
                                                                                                BW_REDUCE_REQ_COUNT))
     return res_1, res_2
@@ -541,7 +549,7 @@ def init_cmd_params():
                                      prog='uc2_arbitrator',
                                      epilog="If you have any questions please contact "
                                      "Morteza Kheirkhah <m.kheirkhah@ucl.ac.uk>")
-    parser.add_argument("--ca", type=float, default=20.0)
+    parser.add_argument("--ca", type=float, default=50.0)
     args = parser.parse_args()
     
     # init parameters
