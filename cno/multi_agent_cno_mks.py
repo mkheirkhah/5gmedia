@@ -381,9 +381,9 @@ def generate_bg_traffic(lc, shape="random"):
     mid_range = int(capacity/2.0)
     background_list = []
     if (shape == "sawtooth"):
-        for i in range(0, mid_range, 2):
+        for i in range(0, mid_range, 5):
             background_list.append(i)
-        for i in range (mid_range, 0, -2):
+        for i in range (mid_range, 0, -5):
             background_list.append(i)
         return background_list
     if (shape == "random"):

@@ -43,13 +43,16 @@ def main():
 
         if bytesSent != " " and bytesRcvd != " ":
             assert(bs_ts != " " and br_ts != " ")
-            assert(br_ts == bs_ts)
-            message = bytesSent + "\t" + bs_ts + "\t" + bytesRcvd #+ "\t"+ br_ts
-            bytesSent = bytesRcvd = bs_ts = br_ts = " "
-            f = open('uc2_read_from_kafka.log', 'a')
-            f.write(message)
-            f.write('\n')
-            f.close()
-                        
+            # assert(br_ts == bs_ts)
+            if (br_ts == bs_ts):
+                message = bytesSent + "\t" + bs_ts + "\t" + bytesRcvd #+ "\t"+ br_ts
+                bytesSent = bytesRcvd = bs_ts = br_ts = " "
+                f = open('uc2_read_from_kafka.log', 'a')
+                f.write(message)
+                f.write('\n')
+                f.close()
+            else:
+                print ("\n\n************* br_ts != bs_ts*************\n\n")
+
 if __name__ == '__main__':
     main()

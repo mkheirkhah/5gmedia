@@ -27,7 +27,8 @@ ACTOR_LR_RATE = 0.0001
 #CRITIC_LR_RATE = 0.001
 #VIDEO_BIT_RATE = [4000, 8000, 12000, 20000, 40000, 45000]  # Kbps
 #VIDEO_BIT_RATE  = [3000, 5000, 8000, 12000, 15000, 20000, 25000, 30000, 40000, 50000]
-VIDEO_BIT_RATE = [5000, 6000, 7000, 8000, 9000, 10000, 11000, 15000, 19000, 20000]
+# VIDEO_BIT_RATE = [5000, 6000, 7000, 8000, 9000, 10000, 11000, 15000, 19000, 20000]
+VIDEO_BIT_RATE = [5000, 10000, 15000, 20000, 25000, 30000, 35000, 40000, 45000, 50000]
 
 M_IN_K = 1000.0
 BITS_IN_MB = 1000000.0
@@ -81,7 +82,6 @@ VCE = {1 : "06:00:cc:74:72:95", 2 : "06:00:cc:74:72:99"}
 #NN_MODEL = './trained_models/nn_model_ep_48700_m4_bg51_v20_bg10_l500_sm1.ckpt'  #[5<11][r4][more training]
 #NN_MODEL = './trained_models/nn_model_ep_639900_m4_bg51_v20_bg10_l500_sm1.ckpt' #[5<15][r1][more more training]
 
-
 #NN_MODEL = './trained_models/nn_model_ep_22600_m4_bg5_v20_bg10_l500_ch100.ckpt' #[8<25][r4]
 #NN_MODEL = './trained_models/nn_model_ep_130900_m4_bg5_v20_bg10_l500_ch20.ckpt' #[3<25][r5][very little varying]
 #NN_MODEL = './trained_models/nn_model_ep_39600_m4_bg5_v20_bg10_l500_ch35.ckpt'  #[8<25][r4][]
@@ -91,9 +91,13 @@ VCE = {1 : "06:00:cc:74:72:95", 2 : "06:00:cc:74:72:99"}
 #NN_MODEL = './trained_models/nn_model_ep_22800_m4_bg5_v10_bg20_l450.ckpt' #[8<25][r4]
 
 # For final demo
-# NN_MODEL = './trained_models/NN_FINAL_176500.ckpt'         # alpha 100
-NN_MODEL = './trained_models/NN_ALPHA_150_228900.ckpt'   # alpha 150
+# NN_MODEL = './trained_models/NN_FINAL_176500.ckpt'       # alpha 100
+# NN_MODEL = './trained_models/NN_ALPHA_150_228900.ckpt'   # alpha 150
 # NN_MODEL = './trained_models/NN_ALPHA_200_104400.ckpt'   # alpha 200
+# NN_MODEL = './trained_models/NN_ALPHA_50_8600.ckpt'
+# NN_MODEL = './trained_models/NN_BR_50_ALPHA_100_19800.ckpt' # it was ok
+# NN_MODEL = './trained_models/NN_BR_50_ALPHA_100_108800.ckpt' # it was perfect
+NN_MODEL = './trained_models/NN_BR_50_ALPHA_100_257800.ckpt'
 
 INTERVAL = 1.0
 MBPS = 1000000.0
@@ -281,7 +285,7 @@ def init_cmd_params():
     parser.add_argument("--profile",  type=str,   default='standard', choices=['low', 'standard', 'high'])
     parser.add_argument("--priority", type=int,   default=0,     choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
     parser.add_argument("--ava_ca",   type=float, default=0.0)
-    parser.add_argument("--capacity", type=float, default=20000000.0)
+    parser.add_argument("--ca",       type=float, default=20.0)
     parser.add_argument("--seed",     type=int, default=42)
     args = parser.parse_args()
 
@@ -292,7 +296,7 @@ def init_cmd_params():
     profile  = args.profile
     priority = args.priority
     ava_ca   = args.ava_ca
-    capacity = args.capacity
+    capacity = args.ca * BITS_IN_MB
     seed     = args.seed
     return vce, br_min, br_max, profile, priority, ava_ca, capacity, seed
 

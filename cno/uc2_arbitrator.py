@@ -24,7 +24,7 @@ CA_LOWEST = 0.01 # 1%
 TS_VCE_1 = 0.0
 TS_VCE_2 = 0.0
 PROFILE = ["low", "standard", "high"]
-RESET_THRESH = 200 # 30 * 4 = 120 seconds
+RESET_THRESH = 500 # 30 * 4 = 120 seconds
 BITS_IN_MB = 1000000.0
 BITS_IN_KB = 1000.0
 
@@ -41,7 +41,7 @@ BW_DEFAULT = 0.0
 
 BW_REDUCE_REQ = True
 BW_REDUCE_REQ_COUNT = 0
-BW_REDUCE_REQ_THRESH = 6 #24
+BW_REDUCE_REQ_THRESH = 12 #24
 # BW_REDUCE_OFFSET = 5 * BITS_IN_MB # larger the soon to reset bw
 # BW_REDUCE_RESET = 5
 
@@ -251,14 +251,14 @@ def calculate_resources(vce_1, vce_2, bw_dist, producer):
     profile_2 = '0' if vce_2[7] == '0.0' else vce_2[5]
 
     capacity = BW_CURRENT
-    # capacity = (max (float(vce_1[7]), float(vce_2[7])))
-    print("max capacity -> {0}Mbps".format(capacity))
-    
+    print("max capacity -> {0}Mbps br_vce_1[{1}]Kbps  br_vce_2[{2}]Kbps".format(capacity,
+                                                                                VIDEO_BIT_RATE[int(vce_1[2])],
+                                                                                VIDEO_BIT_RATE[int(vce_2[2])]))
     ava_ca = max(float(vce_1[6]), float(vce_2[6]))
     print("available capacity -> {0}Mbps".format(round(ava_ca/BITS_IN_MB, 2)))
 
     if (ava_ca > BW_CURRENT * BITS_IN_MB):
-        print("Capacity has been reduced recently, no need to recalcualte... "
+        print("capacity has been reduced recently, no need to recalcualte... "
               "ava_ca[{0}] BW_CURRENT[{1}]".format(ava_ca, BW_CURRENT * BITS_IN_MB))
         res_1 = [1, ts, vce_1[3], vce_1[4], capacity]
         res_2 = [2, ts, vce_2[3], vce_2[4], capacity]
@@ -272,11 +272,18 @@ def calculate_resources(vce_1, vce_2, bw_dist, producer):
     br_1 = 0 if vce_1[7] == '0.0' else VIDEO_BIT_RATE[int(vce_1[2])] * BITS_IN_KB
     br_2 = 0 if vce_2[7] == '0.0' else VIDEO_BIT_RATE[int(vce_2[2])] * BITS_IN_KB
     real_usable_ca = effective_ca - br_1 - br_2
+
     real_split_ca = (br_1 + dist[0]*real_usable_ca/100.0, br_2+ dist[1]*real_usable_ca/100.0)
     print ("real_split_ca -> vce-1({0}) |-| vce-2({1})".format(real_split_ca[0], real_split_ca[1]))
-    
-    if (simple_analysis(vce_1, vce_2) == "TWO_STREAMS"):
-        real_split_ca = update_real_split_ca(real_split_ca, capacity, ava_ca)
+
+    # This is to fix a rare bug #
+    if (real_usable_ca < 0.0):
+        # real_split_ca = (VIDEO_BIT_RATE[int(vce_1[3])], VIDEO_BIT_RATE[int(vce_2[3])])
+        print ("---->>>> real_split_ca -> vce-1({0}) |-| vce-2({1}) ----<<<<".format(real_split_ca[0], real_split_ca[1]))
+
+    # if possible give more to low quality stream
+    # if (simple_analysis(vce_1, vce_2) == "TWO_STREAMS"):
+    #     real_split_ca = update_real_split_ca(real_split_ca, capacity, ava_ca)
     
     real_split_br_max = find_optimal_br(real_split_ca)
     print("real_split_br_max -> vce-1({0}) |-| vce-2({1})".format(VIDEO_BIT_RATE[real_split_br_max[0]],
@@ -291,13 +298,17 @@ def calculate_resources(vce_1, vce_2, bw_dist, producer):
     real_split_br_max = update_real_split_br_max(vce_1, vce_2, ava_ca, real_split_br_max)
     
     # br_max should not be larger than br_max
-    vce_1_br_max = real_split_br_max[0] if real_split_br_max[0] < int(vce_1[4]) else int(vce_1[4])
-    vce_2_br_max = real_split_br_max[1] if real_split_br_max[1] < int(vce_2[4]) else int(vce_2[4])
-
+    vce_1_br_max = real_split_br_max[0] if real_split_br_max[0] <= int(vce_1[4]) else int(vce_1[4])
+    real_split_br_max = (vce_1_br_max, real_split_br_max[1])
+    vce_2_br_max = real_split_br_max[1] if real_split_br_max[1] <= int(vce_2[4]) else int(vce_2[4])
+    real_split_br_max = (real_split_br_max[0], vce_2_br_max)
+    
     # br_max should not be smaller than br_min
     vce_1_br_max = real_split_br_max[0] if real_split_br_max[0] >= int(vce_1[3]) else int(vce_1[3])
+    real_split_br_max = (vce_1_br_max, real_split_br_max[1])
     vce_2_br_max = real_split_br_max[1] if real_split_br_max[1] >= int(vce_2[3]) else int(vce_2[3])
-
+    real_split_br_max = (real_split_br_max[0], vce_2_br_max)
+    
     res_1 = [1, ts, vce_1[3], str(vce_1_br_max), capacity] # vce_1[7] -> capacity
     res_2 = [2, ts, vce_2[3], str(vce_2_br_max), capacity] # vce_2[7] -> capacity
 
