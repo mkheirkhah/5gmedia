@@ -91,9 +91,9 @@ VCE = {1 : "06:00:cc:74:72:95", 2 : "06:00:cc:74:72:99"}
 #NN_MODEL = './trained_models/nn_model_ep_22800_m4_bg5_v10_bg20_l450.ckpt' #[8<25][r4]
 
 # For final demo
-# NN_MODEL = './trained_models/NN_FINAL_176500.ckpt'     # alpha 100
+# NN_MODEL = './trained_models/NN_FINAL_176500.ckpt'         # alpha 100
 NN_MODEL = './trained_models/NN_ALPHA_150_228900.ckpt'   # alpha 150
-# NN_MODEL = './trained_models/NN_ALPHA_200_104400.ckpt' # alpha 200
+# NN_MODEL = './trained_models/NN_ALPHA_200_104400.ckpt'   # alpha 200
 
 INTERVAL = 1.0
 MBPS = 1000000.0
