@@ -24,15 +24,22 @@ DEFAULT_BW = 20
 
 def reset_tc(default_bw):
     print("reset tc rate to the default ---> {0}mbps".format(default_bw))
-    msg_1 = "sudo tc qdisc replace dev ens3 root tbf rate " + str(default_bw) + "mbit burst 32kbit latency 400ms"
-    msg_2 = "sudo tc qdisc replace dev ifb0 root tbf rate " + str(default_bw) + "mbit burst 32kbit latency 400ms"
+    msg_egress = "sudo tc qdisc replace dev ens4 root tbf rate " + str(default_bw) + "mbit burst 32kbit latency 400ms"
+    os.system(msg_egress)
+    # msg_1 = "sudo tc qdisc replace dev ens3 root tbf rate " + str(default_bw) + "mbit burst 32kbit latency 400ms"
+    # msg_2 = "sudo tc qdisc replace dev ifb0 root tbf rate " + str(default_bw) + "mbit burst 32kbit latency 400ms"
+    # os.system(msg_1)
+    # os.system(msg_2)
+
     
 def change_tm_bw(bw):
     print("change_tm_bw ---> {0}mbps".format(bw))
-    msg_1 = "sudo tc qdisc replace dev ens3 root tbf rate " + str(bw) + "mbit burst 32kbit latency 400ms"
-    msg_2 = "sudo tc qdisc replace dev ifb0 root tbf rate " + str(bw) + "mbit burst 32kbit latency 400ms"
-    os.system(msg_1)
-    os.system(msg_2)
+    msg_egress = "sudo tc qdisc replace dev ens4 root tbf rate " + str(bw) + "mbit burst 32kbit latency 400ms"
+    os.system(msg_egress)
+    # msg_1 = "sudo tc qdisc replace dev ens3 root tbf rate " + str(bw) + "mbit burst 32kbit latency 400ms"
+    # msg_2 = "sudo tc qdisc replace dev ifb0 root tbf rate " + str(bw) + "mbit burst 32kbit latency 400ms"
+    # os.system(msg_1)
+    # os.system(msg_2)
     return bw
 
 def main():
