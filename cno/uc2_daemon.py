@@ -10,11 +10,12 @@ from uc2_settings import KAFKA_SERVER, KAFKA_API_VERSION, \
     METRIC_TEMPLATE_UC2_EXEC, \
     METRIC_TEMPLATE_UC2_VCE, \
     METRIC_TEMPLATE_UC2_CNO_REQUEST, \
-    METRIC_TEMPLATE_UC2_CNO_RESPOND
+    METRIC_TEMPLATE_UC2_CNO_RESPOND, \
+    METRIC_TEMPLATE_UC2_TM
 from uc2_metric_generator import generate_metric_uc2_exec, \
     generate_metric_uc2_vce, \
     generate_metric_uc2_cno, \
-    generate_metric_uc2_cno
+    generate_metric_uc2_tm
 
 
 def get_msg_temp_uc2(topic="uc2_tm"):
@@ -95,13 +96,13 @@ def write_kafka_uc2_exec(producer, value, vce_id):
         print (ex)
 
 # res[vce, ts, br_min, br_max, capacity]
-def write_kafka_uc2_vce(producer, res, vce_id, video_bit_rates):
+def write_kafka_uc2_vce(producer, res, vce_id, video_bit_rates, profile):
     try:
         # datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f")
         now = res[1]
         tmp_metric = METRIC_TEMPLATE_UC2_VCE
-        metric = generate_metric_uc2_vce(res, now, tmp_metric, vce_id, video_bit_rates)
-        print("{0} <- {1}".format(KAFKA_EXECUTION_TOPIC["uc2_vce"], metric))
+        metric = generate_metric_uc2_vce(res, now, tmp_metric, vce_id, video_bit_rates, profile)
+        # print("{0} <- {1}".format(KAFKA_EXECUTION_TOPIC["uc2_vce"], metric))
         t = producer.send(KAFKA_EXECUTION_TOPIC["uc2_vce"], metric)
         result = t.get(timeout=60)
     except Exception as ex:
@@ -123,6 +124,17 @@ def write_kafka_uc2_cno(producer, msg_type, bw):
         assert(metric != "")
         print("{0} <- {1}".format(KAFKA_EXECUTION_TOPIC["uc2_cno"], metric))
         t = producer.send(KAFKA_EXECUTION_TOPIC["uc2_cno"], metric)
+        result = t.get(timeout=60)
+    except Exception as ex:
+        print (ex)
+
+def write_kafka_uc2_tm(producer, value, metric_type, unit):
+    try:
+        now = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f")
+        metric_tmp = METRIC_TEMPLATE_UC2_TM
+        metric = generate_metric_uc2_tm(value, now, metric_tmp, metric_type, unit)
+        # print("{0} <- {1}".format(KAFKA_EXECUTION_TOPIC["uc2_tm"], metric))
+        t = producer.send(KAFKA_EXECUTION_TOPIC["uc2_tm"], metric)
         result = t.get(timeout=60)
     except Exception as ex:
         print (ex)

@@ -18,12 +18,22 @@ def generate_metric_uc2_conf(metric_value, timestamp, tmp, vce_id):
     #metric['vce']['timestamp'] = timestamp
     return metric
 
-def generate_metric_uc2_vce(metric_value, timestamp, tmp, vce_id, video_bit_rates):
+def generate_metric_uc2_tm(bw, tp, metric_tmp, metric_type, unit):
+    metric = metric_tmp
+    metric['unit'] = str(unit)
+    metric['vdu_uuid'] = 677
+    metric['value'] = bw
+    metric['type'] = str(metric_type)
+    metric['timestamp'] = tp
+    return metric
+
+def generate_metric_uc2_vce(metric_value, timestamp, tmp, vce_id, video_bit_rates, profile):
     metric = tmp
     metric['id'] = vce_id #str
     metric['utc_time'] = timestamp #int
     metric['metric_x'] = video_bit_rates[int(metric_value[2])] #int
     metric['metric_y'] = video_bit_rates[int(metric_value[3])] #int
+    metric['metric_z'] = profile
     return metric
 
     # "sender": "O-CNO",

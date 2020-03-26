@@ -44,7 +44,8 @@ KAFKA_TRANSLATION_TOPIC_SUFFIX = "trans"
 KAFKA_EXECUTION_TOPIC = {"uc2_exec":'ns.instances.exec',\
                          "uc2_conf":'ns.instances.conf',\
                          "uc2_vce":'app.vce.metrics',\
-                         "uc2_cno":'cno'}
+                         "uc2_cno":'cno',\
+                         "uc2_tm":"trafficmanager.uc2.metrics"}
 
 # =================================
 # OSM SETTINGS
@@ -173,7 +174,17 @@ METRIC_TEMPLATE_UC2_VCE = {
     "id": "mac_address|string",
     "utc_time": 1580915872858,
     "metric_x": "float or int",
-    "metric_y": "float or int"
+    "metric_y": "float or int",
+    "metric_z": "float or int"
+}
+
+# Kafka topic: trafficmanager.uc2.metrics
+METRIC_TEMPLATE_UC2_TM = {
+    "unit": "string",
+    "vdu_uuid": "vm_id",
+    "value": "float",
+    "type": "metric_name",
+    "timestamp": "2020-03-03T10:50:00.000000Z"
 }
 
 METRIC_TEMPLATE_UC2_CNO_REQUEST = {
